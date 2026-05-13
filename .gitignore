@@ -1,0 +1,14 @@
+# Go
+*.test
+*.out
+dist/
+vendor/
+coverage.txt
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
