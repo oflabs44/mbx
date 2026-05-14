@@ -41,6 +41,7 @@ func runFolderList(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer
 	if err != nil {
 		return err
 	}
+	defer closeBackend(backend)
 	folders, err := backend.ListFolders(ctx)
 	if err != nil {
 		return err

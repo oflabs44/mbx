@@ -267,18 +267,13 @@ func decodeHeaderWord(s string) string {
 }
 
 // attachAttachmentIDs converts the internal gmailAttachment list into
-// the public attachment.Meta shape, stamping each with its mbx ID via
-// attachment.FormatID so the suffix format stays in one place.
+// the public attachment.Meta shape and stamps each with its mbx ID.
+// gmailAttachment can't go entirely — DownloadAttachment needs the
+// per-part GmailID for users.messages.attachments.get.
 func attachAttachmentIDs(account, msgID string, atts []gmailAttachment) []attachment.Meta {
-	parent := mbxid.NewGmail(account, msgID)
-	out := make([]attachment.Meta, 0, len(atts))
-	for i, a := range atts {
-		out = append(out, attachment.Meta{
-			ID:       attachment.FormatID(parent, i),
-			Filename: a.Filename,
-			Size:     a.Size,
-			MIME:     a.MIME,
-		})
+	metas := make([]attachment.Meta, 0, len(atts))
+	for _, a := range atts {
+		metas = append(metas, attachment.Meta{Filename: a.Filename, Size: a.Size, MIME: a.MIME})
 	}
-	return out
+	return attachment.Stamp(mbxid.NewGmail(account, msgID), metas)
 }

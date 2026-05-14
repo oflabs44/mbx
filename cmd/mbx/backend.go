@@ -3,25 +3,58 @@ package main
 import (
 	"context"
 
+	"github.com/oflabs44/mbx/internal/attachment"
 	"github.com/oflabs44/mbx/internal/config"
+	"github.com/oflabs44/mbx/internal/envelope"
+	"github.com/oflabs44/mbx/internal/folder"
+	"github.com/oflabs44/mbx/internal/message"
 	"github.com/oflabs44/mbx/internal/output"
 	"github.com/oflabs44/mbx/internal/provider/gmail"
+	"github.com/oflabs44/mbx/internal/provider/imap"
 )
 
-// newBackend returns the constructed provider client for an account.
-// Returning the concrete type lets handlers use it as whatever narrow
-// interface they need (Lister, Reader, RawReader, Downloader, ...).
+// backend is the cmd/mbx-level union of every consumer-side capability
+// interface a phase-2/3 read-path command may need. Defined here, not in
+// internal/provider/*, because it exists to give cmd handlers a single
+// concrete return from newBackend — providers themselves should never
+// import this; they satisfy the narrow interfaces structurally.
+type backend interface {
+	envelope.Lister
+	message.Reader
+	message.RawReader
+	folder.Lister
+	attachment.Lister
+	attachment.Downloader
+}
+
+// newBackend returns the constructed provider client for an account as
+// the union interface above. Every backend type returned must satisfy
+// every method on `backend` — that's the cost of one helper for all
+// commands. If a future provider can't (e.g. a send-only transport),
+// it doesn't go through newBackend.
 //
-// IMAP support lands in phase 3. When that arrives this function will
-// need a small union type because two concrete returns can't share a
-// signature; for now, one backend means one helper.
-func newBackend(ctx context.Context, name string, acct *config.Account) (*gmail.Client, error) {
+// IMAP clients hold a live TCP connection; callers should defer Close()
+// on the returned value when the underlying type exposes one. Today,
+// only *imap.Client does — *gmail.Client uses stateless HTTP and needs
+// no teardown.
+func newBackend(ctx context.Context, name string, acct *config.Account) (backend, error) {
 	switch acct.Backend.Type {
 	case config.BackendGmail:
 		return gmail.New(ctx, name, acct)
+	case config.BackendIMAP:
+		return imap.New(ctx, name, acct)
 	default:
 		return nil, output.Errorf(output.CodeUsageInvalid,
-			"%s backend support lands in phase 3 (account %q is type %q)",
-			acct.Backend.Type, name, acct.Backend.Type)
+			"backend type %q is not supported (account %q)",
+			acct.Backend.Type, name)
+	}
+}
+
+// closeBackend issues a connection-level teardown for backends that
+// hold open resources. Safe to call on any backend; no-op for types
+// that don't expose Close().
+func closeBackend(b backend) {
+	if c, ok := b.(interface{ Close() error }); ok {
+		_ = c.Close()
 	}
 }

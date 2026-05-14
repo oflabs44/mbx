@@ -96,7 +96,14 @@ message.send.backend.auth.cmd        = "op read op://Dev/mbx-work/smtp-password"
 
 `message.send.backend.auth.*` has no implicit inheritance from `backend.auth.*` — configure it explicitly. The two are often identical (Proton bridge, corporate IMAP+SMTP with shared password) but mbx never infers.
 
-For **Proton accounts**, run the local Proton Bridge and point both backends at `127.0.0.1` on the bridge's configured ports. Auth is password (the bridge-issued one), not OAuth.
+For **Proton accounts**, run the local Proton Bridge and point both backends at `127.0.0.1` on the bridge's configured ports. Auth is password (the bridge-issued one), not OAuth. The bridge ships a self-signed (and on macOS, non-strict-compliant) TLS certificate, so on a typical desktop install you'll also need:
+
+```toml
+backend.encryption.insecure              = true
+message.send.backend.encryption.insecure = true
+```
+
+`encryption.insecure` disables TLS certificate verification on that backend. **Only use it for loopback relays** like Proton Bridge — on a remote host it turns the connection into a downgrade target. mbx defaults to verification on; this is opt-in per-backend.
 
 For **IMAP+OAuth** (corporate Microsoft 365, Google Workspace IMAP), `backend.auth.type = "oauth2"` with the same nested secret blocks as Gmail above. `message.send.backend.auth.*` may use OAuth too.
 

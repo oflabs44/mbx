@@ -71,6 +71,7 @@ func runAttachmentList(ctx context.Context, g *GlobalFlags, stdout, stderr io.Wr
 	if err != nil {
 		return err
 	}
+	defer closeBackend(backend)
 	metas, err := backend.ListAttachments(ctx, msgID)
 	if err != nil {
 		return err
@@ -87,6 +88,7 @@ func runAttachmentDownload(ctx context.Context, g *GlobalFlags, stdout, stderr i
 	if err != nil {
 		return err
 	}
+	defer closeBackend(backend)
 	data, err := backend.DownloadAttachment(ctx, msgID, index)
 	if err != nil {
 		return err

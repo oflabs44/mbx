@@ -58,6 +58,11 @@ const (
 
 type Encryption struct {
 	Type string `toml:"type"`
+	// Insecure disables TLS certificate verification. Intended for
+	// loopback relays (Proton bridge, dev-only IMAP) that ship self-
+	// signed or non-Apple-compliant certs. Defaults to false; setting
+	// it on a remote host turns the connection into a downgrade target.
+	Insecure bool `toml:"insecure,omitempty"`
 }
 
 const (
@@ -357,6 +362,9 @@ func (b *Backend) validateNetworkFields() error {
 	case EncryptionTLS, EncryptionStartTLS, EncryptionNone:
 	default:
 		return fmt.Errorf("%w: encryption.type must be tls, start-tls, or none (got %q)", ErrInvalidValue, b.Encryption.Type)
+	}
+	if b.Encryption.Insecure && b.Encryption.Type == EncryptionNone {
+		return fmt.Errorf("%w: encryption.insecure=true makes no sense when encryption.type=none", ErrInvalidValue)
 	}
 	if b.Login == "" {
 		return fmt.Errorf("%w: login", ErrMissingField)

@@ -288,7 +288,7 @@
   <div class="phase-header">
     <span class="phase-id">phase 3</span>
     <h2 class="phase-title">Read path — IMAP (incl. Proton via bridge)</h2>
-    <span class="phase-status">pending</span>
+    <span class="phase-status done">done</span>
   </div>
   <div class="phase-body">
     <p class="phase-goal">Second provider satisfying the same narrow consumer interfaces. Validates the abstraction shape and unlocks Proton.</p>
@@ -297,13 +297,13 @@
       <div><strong>Unblocks:</strong> phase 4</div>
     </div>
     <ul class="task-list">
-      <li class="task"><input type="checkbox" id="t-3-1"><label for="t-3-1"><code>internal/provider/imap/</code> skeleton with <code>emersion/go-imap</code> v2 client + SASL auth (<code>PLAIN</code> + <code>XOAUTH2</code>)</label></li>
-      <li class="task"><input type="checkbox" id="t-3-2"><label for="t-3-2">IMAP impl of <code>EnvelopeLister</code> (<code>FETCH ENVELOPE FLAGS UID</code> + filter translation)</label></li>
-      <li class="task"><input type="checkbox" id="t-3-3"><label for="t-3-3">IMAP impl of <code>MessageReader</code> using <code>emersion/go-message</code> for MIME parsing</label></li>
-      <li class="task"><input type="checkbox" id="t-3-4"><label for="t-3-4">IMAP impls of <code>FolderLister</code>, <code>AttachmentLister</code>, <code>AttachmentDownloader</code></label></li>
-      <li class="task"><input type="checkbox" id="t-3-5"><label for="t-3-5"><code>UIDVALIDITY</code> tracking: store per-folder value; detect rolls; emit <code>provider.id_invalidated</code> on stale IDs</label></li>
-      <li class="task"><input type="checkbox" id="t-3-6"><label for="t-3-6">IMAP raw query (<code>--query "FROM cfo@..."</code>) compiled to <code>SEARCH</code> criteria</label></li>
-      <li class="task"><input type="checkbox" id="t-3-7"><label for="t-3-7">All phase-2 commands work end-to-end against a real Proton-bridge endpoint (manual smoke)</label></li>
+      <li class="task"><input type="checkbox" id="t-3-1" checked><label for="t-3-1"><code>internal/provider/imap/</code> skeleton with <code>emersion/go-imap</code> v2 client + SASL auth (<code>PLAIN</code> + <code>XOAUTH2</code>)</label></li>
+      <li class="task"><input type="checkbox" id="t-3-2" checked><label for="t-3-2">IMAP impl of <code>EnvelopeLister</code> (<code>FETCH ENVELOPE FLAGS UID</code> + filter translation)</label></li>
+      <li class="task"><input type="checkbox" id="t-3-3" checked><label for="t-3-3">IMAP impl of <code>MessageReader</code> using <code>emersion/go-message</code> for MIME parsing</label></li>
+      <li class="task"><input type="checkbox" id="t-3-4" checked><label for="t-3-4">IMAP impls of <code>FolderLister</code>, <code>AttachmentLister</code>, <code>AttachmentDownloader</code></label></li>
+      <li class="task"><input type="checkbox" id="t-3-5" checked><label for="t-3-5"><code>UIDVALIDITY</code> tracking: store per-folder value; detect rolls; emit <code>provider.id_invalidated</code> on stale IDs</label></li>
+      <li class="task"><input type="checkbox" id="t-3-6" checked><label for="t-3-6">IMAP raw query (<code>--query "FROM cfo@..."</code>) compiled to <code>SEARCH</code> criteria</label></li>
+      <li class="task"><input type="checkbox" id="t-3-7" checked><label for="t-3-7">All phase-2 commands work end-to-end against a real Proton-bridge endpoint (manual smoke)</label></li>
     </ul>
   </div>
 </section>

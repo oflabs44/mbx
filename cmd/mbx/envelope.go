@@ -13,10 +13,6 @@ import (
 	"github.com/oflabs44/mbx/internal/output"
 )
 
-// gmailDefaultFolder matches the documented default for `mbx envelope list`
-// when --folder is unspecified. Search defaults to no folder filter.
-const gmailDefaultFolder = "INBOX"
-
 func newEnvelopeCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "envelope",
@@ -71,7 +67,12 @@ func bindEnvelopeFlags(c *cobra.Command, ef *envelopeFlags) {
 // toListQuery materializes flags into the normalized query, honouring the
 // pflag "Changed" check so unset boolean filters stay nil (no filter)
 // rather than being read as the zero value (false).
-func (ef *envelopeFlags) toListQuery(c *cobra.Command, defaultFolder string) (envelope.ListQuery, error) {
+//
+// Folder defaulting is deferred to the runX helpers below so they can
+// consult the resolved account (folder.aliases.inbox vs the literal
+// "INBOX") for `list`, while `search` keeps an empty Folder (cross-
+// folder).
+func (ef *envelopeFlags) toListQuery(c *cobra.Command) (envelope.ListQuery, error) {
 	q := envelope.ListQuery{
 		Folder:   ef.folder,
 		Limit:    ef.limit,
@@ -79,9 +80,6 @@ func (ef *envelopeFlags) toListQuery(c *cobra.Command, defaultFolder string) (en
 		From:     ef.from,
 		To:       ef.to,
 		RawQuery: ef.rawQuery,
-	}
-	if q.Folder == "" {
-		q.Folder = defaultFolder
 	}
 	if c.Flags().Changed("unread") {
 		v := ef.unread
@@ -119,7 +117,7 @@ func newEnvelopeListCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command
 		Short: "List envelopes from one or more accounts",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			q, err := ef.toListQuery(cmd, gmailDefaultFolder)
+			q, err := ef.toListQuery(cmd)
 			if err != nil {
 				return err
 			}
@@ -137,7 +135,7 @@ func newEnvelopeSearchCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Comma
 		Short: "Cross-folder keyword search",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			q, err := ef.toListQuery(cmd, "")
+			q, err := ef.toListQuery(cmd)
 			if err != nil {
 				return err
 			}
@@ -156,10 +154,14 @@ func runEnvelopeList(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writ
 	if err != nil {
 		return err
 	}
+	if q.Folder == "" {
+		q.Folder = canonicalInbox(acct)
+	}
 	backend, err := newBackend(ctx, acctName, acct)
 	if err != nil {
 		return err
 	}
+	defer closeBackend(backend)
 	page, err := envelope.List(ctx, backend, q)
 	if err != nil {
 		return err
@@ -176,6 +178,7 @@ func runEnvelopeSearch(ctx context.Context, g *GlobalFlags, stdout, stderr io.Wr
 	if err != nil {
 		return err
 	}
+	defer closeBackend(backend)
 	page, err := envelope.Search(ctx, backend, q)
 	if err != nil {
 		return err
@@ -189,6 +192,19 @@ func emitEnvelopePage(stdout, stderr io.Writer, g *GlobalFlags, acctName string,
 		meta.NextCursors = map[string]string{acctName: page.NextCursor}
 	}
 	return output.NewWriter(stdout, stderr, g.format()).Success(page.Envelopes, meta)
+}
+
+// canonicalInbox resolves the per-account inbox folder name. Honors
+// folder.aliases.inbox when set (Gmail-via-IMAP, dovecot virtual
+// folders, Migadu special namespaces); falls back to the IMAP-spec /
+// Gmail label literal "INBOX" otherwise.
+func canonicalInbox(acct *config.Account) string {
+	if acct.Folder != nil {
+		if v := acct.Folder.Aliases["inbox"]; v != "" {
+			return v
+		}
+	}
+	return "INBOX"
 }
 
 // requireSingleAccount enforces phase-2's single-account scope. Phase 7

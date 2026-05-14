@@ -75,3 +75,16 @@ func SplitID(s string) (mbxid.ID, int, error) {
 func FormatID(msgID mbxid.ID, index int) string {
 	return fmt.Sprintf("%s:att-%d", msgID.String(), index)
 }
+
+// Stamp returns a copy of atts with each .ID set to FormatID(parent, i).
+// Backends produce []Meta with empty IDs from their MIME walk; this
+// helper centralizes the ID-suffix convention so providers don't fork
+// it.
+func Stamp(parent mbxid.ID, atts []Meta) []Meta {
+	out := make([]Meta, len(atts))
+	for i, a := range atts {
+		a.ID = FormatID(parent, i)
+		out[i] = a
+	}
+	return out
+}

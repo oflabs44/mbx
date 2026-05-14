@@ -88,6 +88,7 @@ func runMessageRead(ctx context.Context, g *GlobalFlags, stdout, stderr io.Write
 	if err != nil {
 		return err
 	}
+	defer closeBackend(backend)
 	msg, err := backend.ReadMessage(ctx, id, opt)
 	if err != nil {
 		return err
@@ -105,6 +106,7 @@ func runMessageExport(ctx context.Context, g *GlobalFlags, stdout, _ io.Writer, 
 	if err != nil {
 		return err
 	}
+	defer closeBackend(backend)
 	raw, err := backend.ReadMessageRaw(ctx, id)
 	if err != nil {
 		return err
