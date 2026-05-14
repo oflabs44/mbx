@@ -2,9 +2,7 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"io"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -123,6 +121,17 @@ func newAccountAuthCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 					WithDetails("account", name)
 			}
 
+			// Preflight write_cmd before the browser dance. A broken write_cmd
+			// is by far the most common reason this command fails, and failing
+			// fast here means the user doesn't burn a consent grant on a
+			// refresh token we can't store.
+			if err := secret.Preflight(ctx, authBlock.RefreshToken); err != nil {
+				return output.Errorf(output.CodeAuthRefreshFailed,
+					"preflight of refresh-token.write_cmd failed: %s", err.Error()).
+					WithDetails("account", name).
+					WithDetails("hint", "verify your write_cmd executes cleanly: echo TEST | sh -c '<your-write-cmd>'")
+			}
+
 			oauthCfg, err := auth.Config(ctx, authBlock)
 			if err != nil {
 				return output.Errorf(output.CodeConfigInvalid, "building oauth2 config: %s", err.Error())
@@ -148,18 +157,13 @@ func newAccountAuthCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 			}
 
 			if err := secret.Write(ctx, authBlock.RefreshToken, token.RefreshToken); err != nil {
-				// The browser flow already burned the user's consent and Google
-				// has issued (and tracked) this refresh token. Dropping it
-				// silently means another consent dance to recover; instead dump
-				// it to a 0600 tempfile so the user can fix write_cmd and pipe
-				// it in manually.
-				rescue := writeRescueToken(name, token.RefreshToken)
+				// Preflight has already verified the write_cmd round-trips, so a
+				// failure here is genuinely unexpected — secret store outage,
+				// network drop mid-call, etc. Re-running the command will re-do
+				// the consent dance; that's acceptable for an edge case.
 				return output.Errorf(output.CodeAuthRefreshFailed,
 					"persisting refresh token via write_cmd: %s", err.Error()).
-					WithDetails("account", name).
-					WithDetails("rescue_path", rescue.path).
-					WithDetails("rescue_error", rescue.errMsg).
-					WithDetails("rescue_hint", rescue.hint)
+					WithDetails("account", name)
 			}
 
 			data := accountAuthResult{
@@ -172,37 +176,6 @@ func newAccountAuthCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 			}
 			return output.NewWriter(stdout, stderr, g.format()).Success(data, nil)
 		},
-	}
-}
-
-type rescueResult struct {
-	path   string
-	errMsg string
-	hint   string
-}
-
-// writeRescueToken dumps the just-obtained refresh token to a 0600 tempfile
-// in the system temp dir so the user can recover from a write_cmd typo
-// without redoing the browser flow. Returns the path and a copy-pasteable
-// hint; if the tempfile itself fails, errMsg is populated so the structured
-// envelope tells the user the token is gone.
-func writeRescueToken(account, token string) rescueResult {
-	f, err := os.CreateTemp("", fmt.Sprintf("mbx-rescue-%s-*.txt", account))
-	if err != nil {
-		return rescueResult{errMsg: err.Error()}
-	}
-	defer f.Close()
-	if err := f.Chmod(0o600); err != nil {
-		_ = os.Remove(f.Name())
-		return rescueResult{errMsg: err.Error()}
-	}
-	if _, err := f.WriteString(token); err != nil {
-		_ = os.Remove(f.Name())
-		return rescueResult{errMsg: err.Error()}
-	}
-	return rescueResult{
-		path: f.Name(),
-		hint: fmt.Sprintf("fix backend.auth.refresh-token.write_cmd, then: cat %s | sh -c '<your-write-cmd>' && rm %s", f.Name(), f.Name()),
 	}
 }
 

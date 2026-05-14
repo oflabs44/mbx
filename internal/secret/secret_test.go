@@ -116,6 +116,79 @@ func TestRead_Keyring_SkipsWithoutBackend(t *testing.T) {
 	}
 }
 
+// fileBackedSecret wires a Secret to a tempfile so Read and Write actually
+// share state — the right setup for round-trip preflight tests.
+func fileBackedSecret(t *testing.T) (*config.Secret, string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "secret")
+	return &config.Secret{
+		Cmd:      "cat " + path,
+		WriteCmd: "cat > " + path,
+	}, path
+}
+
+func TestPreflight_RoundTripsExistingValue(t *testing.T) {
+	skipOnWindows(t)
+	s, path := fileBackedSecret(t)
+	if err := os.WriteFile(path, []byte("existing-token"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Preflight(context.Background(), s); err != nil {
+		t.Fatalf("Preflight: %v", err)
+	}
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "existing-token" {
+		t.Errorf("preflight altered the existing value: got %q", got)
+	}
+}
+
+func TestPreflight_SentinelWhenNoExistingValue(t *testing.T) {
+	skipOnWindows(t)
+	s, path := fileBackedSecret(t)
+	if err := os.WriteFile(path, []byte{}, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Preflight(context.Background(), s); err != nil {
+		t.Fatalf("Preflight: %v", err)
+	}
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(got), "MBX-PREFLIGHT-") {
+		t.Errorf("sentinel not written; file contains %q", got)
+	}
+}
+
+func TestPreflight_DetectsWriteCmdFailure(t *testing.T) {
+	skipOnWindows(t)
+	s := &config.Secret{
+		Cmd:      "echo current",
+		WriteCmd: "false", // always exits 1
+	}
+	err := Preflight(context.Background(), s)
+	if err == nil {
+		t.Fatal("want preflight error, got nil")
+	}
+	if !errors.Is(err, ErrCmdFailed) {
+		t.Errorf("err = %v, want wrap of ErrCmdFailed", err)
+	}
+}
+
+func TestPreflight_NoWriteCmd(t *testing.T) {
+	err := Preflight(context.Background(), &config.Secret{Raw: "x"})
+	if !errors.Is(err, ErrNoWriteCmd) {
+		t.Fatalf("err = %v, want ErrNoWriteCmd", err)
+	}
+}
+
 func TestRead_CmdTimeoutIsDistinguishable(t *testing.T) {
 	skipOnWindows(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)

@@ -10,6 +10,8 @@ package secret
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -74,6 +76,64 @@ func Write(ctx context.Context, s *config.Secret, value string) error {
 	_, err := runCmd(ctx, s.WriteCmd, strings.NewReader(value))
 
 	return err
+}
+
+// Preflight verifies that the secret's write_cmd works *before* the caller
+// commits to producing a real value (e.g., before an OAuth browser flow
+// hands us a refresh token we can't afford to drop). The strategy:
+//
+//   - If the secret currently resolves to a non-empty value, round-trip it
+//     (write back what we read; readback must match).
+//   - Otherwise, write a sentinel and read it back. The sentinel stays in
+//     the user's store if the caller's subsequent write never lands; that's
+//     a tolerable artifact because it's clearly named and will be overwritten
+//     on the next successful Write.
+//
+// Returns nil iff write_cmd executed and the readback matched. Surfaces
+// underlying read/write errors with %w so callers can branch.
+func Preflight(ctx context.Context, s *config.Secret) error {
+	if s == nil || s.WriteCmd == "" {
+		return ErrNoWriteCmd
+	}
+
+	existing, readErr := Read(ctx, s)
+	if readErr == nil && existing != "" {
+		if err := Write(ctx, s, existing); err != nil {
+			return fmt.Errorf("write_cmd failed during preflight round-trip: %w", err)
+		}
+		got, err := Read(ctx, s)
+		if err != nil {
+			return fmt.Errorf("readback after preflight write failed: %w", err)
+		}
+		if got != existing {
+			return fmt.Errorf("preflight readback mismatch (got %d bytes, expected %d)", len(got), len(existing))
+		}
+		return nil
+	}
+
+	sentinel, err := randomSentinel()
+	if err != nil {
+		return fmt.Errorf("generating preflight sentinel: %w", err)
+	}
+	if err := Write(ctx, s, sentinel); err != nil {
+		return fmt.Errorf("write_cmd failed during preflight sentinel write: %w", err)
+	}
+	got, err := Read(ctx, s)
+	if err != nil {
+		return fmt.Errorf("readback after preflight sentinel write failed: %w", err)
+	}
+	if got != sentinel {
+		return fmt.Errorf("preflight sentinel readback mismatch (got %q, wrote %q)", got, sentinel)
+	}
+	return nil
+}
+
+func randomSentinel() (string, error) {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return "MBX-PREFLIGHT-" + hex.EncodeToString(b), nil
 }
 
 func runCmd(ctx context.Context, cmd string, stdin io.Reader) (string, error) {

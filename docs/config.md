@@ -66,7 +66,7 @@ backend.auth.scopes    = ["https://mail.google.com/"]
 backend.auth.client-secret.cmd = "op read op://Dev/mbx-gmail-personal/client-secret"
 
 backend.auth.refresh-token.cmd       = "op read op://Dev/mbx-gmail-personal/refresh-token"
-backend.auth.refresh-token.write_cmd = "op item edit mbx-gmail-personal refresh-token[password]=-"
+backend.auth.refresh-token.write_cmd = 'op item edit mbx-gmail-personal "refresh-token=$(cat)" </dev/null'
 ```
 
 ## Backend — IMAP
@@ -143,7 +143,7 @@ For OAuth `refresh-token` blocks **only**, you must also set `write_cmd`. mbx pi
 
 ```toml
 backend.auth.refresh-token.cmd       = "op read op://Dev/mbx-gmail-personal/refresh-token"
-backend.auth.refresh-token.write_cmd = "op item edit mbx-gmail-personal refresh-token[password]=-"
+backend.auth.refresh-token.write_cmd = 'op item edit mbx-gmail-personal "refresh-token=$(cat)" </dev/null'
 ```
 
 Read variant and write target are decoupled on purpose ([ADR-0001](./adr/0001-secrets-resolution-model.md#write-target-is-explicit-not-inferred-from-read)). If you use `cmd` to read but want to write to keyring, that's fine — declare both.
@@ -155,18 +155,30 @@ backend.auth.client-secret.cmd = "op read op://Dev/mbx-gmail-personal/client-sec
 
 backend.auth.refresh-token.cmd       = "op read op://Dev/mbx-gmail-personal/refresh-token"
 
-# write_cmd receives the new refresh token on stdin. `op item edit` does not
-# accept `field[type]=-` for stdin; splice it in with $(cat) and use a TOML
-# literal string (single-quoted) so the $ and " survive verbatim.
-backend.auth.refresh-token.write_cmd = 'op item edit mbx-gmail-personal "refresh-token[password]=$(cat)"'
+# write_cmd receives the new refresh token on stdin. Splice it into the
+# assignment with $(cat), then redirect op's stdin to /dev/null so op doesn't
+# try to parse it as a JSON edit-body (op v2 does that when stdin is non-TTY
+# and the result is "[ERROR] ... invalid JSON provided"). Use a TOML literal
+# string (single-quoted) so the $ and " survive into the shell verbatim.
+#
+# The field name in the assignment ("refresh-token" here) must already exist
+# on the 1Password item. Drop any `[type]` annotation — that triggers the
+# JSON-body path in current op versions, even with </dev/null.
+backend.auth.refresh-token.write_cmd = 'op item edit mbx-gmail-personal "refresh-token=$(cat)" </dev/null'
 ```
 
 The `mbx-gmail-personal` item must already have a field literally named `refresh-token` of type `password`. If you'd rather use a Login item's built-in `password` field, point both `cmd` and `write_cmd` at it:
 
 ```toml
 backend.auth.refresh-token.cmd       = "op read op://Dev/mbx-gmail-personal/password"
-backend.auth.refresh-token.write_cmd = 'op item edit mbx-gmail-personal "password=$(cat)"'
+backend.auth.refresh-token.write_cmd = 'op item edit mbx-gmail-personal "password=$(cat)" </dev/null'
 ```
+
+### Argv visibility
+
+After shell expansion, the refresh token sits in the assignment argument that becomes part of `op`'s argv — visible to `ps -ef` while the command runs. On single-user macOS this is generally acceptable; on a shared host it isn't.
+
+For sensitive deployments, prefer a write_cmd that pipes the value to `op` via stdin (e.g., a JSON edit body to `op item edit --in-file -`) so the token never lands in argv. Build that with `jq` or a small helper script. mbx's `account auth` preflight verifies whichever shape you pick.
 
 ### Recipe — `pass`
 
@@ -239,7 +251,7 @@ backend.auth.scopes    = ["https://mail.google.com/"]
 backend.auth.client-secret.cmd = "op read op://Dev/mbx-gmail-personal/client-secret"
 
 backend.auth.refresh-token.cmd       = "op read op://Dev/mbx-gmail-personal/refresh-token"
-backend.auth.refresh-token.write_cmd = "op item edit mbx-gmail-personal refresh-token[password]=-"
+backend.auth.refresh-token.write_cmd = 'op item edit mbx-gmail-personal "refresh-token=$(cat)" </dev/null'
 
 # IMAP corporate account (password auth, cache enabled)
 [accounts.work]
