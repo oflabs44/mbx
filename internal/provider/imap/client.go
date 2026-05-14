@@ -113,7 +113,7 @@ func (c *Client) authenticate(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("imap: obtaining oauth2 access token: %w", err)
 		}
-		return c.c.Authenticate(newXOAUTH2(c.Cfg.Backend.Login, tok.AccessToken))
+		return c.c.Authenticate(auth.NewXOAUTH2(c.Cfg.Backend.Login, tok.AccessToken))
 	default:
 		return fmt.Errorf("imap: unsupported auth.type %q", a.Type)
 	}

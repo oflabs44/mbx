@@ -21,6 +21,7 @@ const (
 	CodeProviderNotFound      Code = "provider.not_found"
 	CodeProviderIDInvalidated Code = "provider.id_invalidated"
 	CodeProviderTimeout       Code = "provider.network_timeout"
+	CodeProviderUnsupported   Code = "provider.unsupported"
 
 	CodeCacheUnavailable    Code = "cache.unavailable"
 	CodeCacheSchemaMismatch Code = "cache.schema_mismatch"
@@ -53,6 +54,8 @@ func ExitCode(c Code) int {
 		return 22
 	case CodeProviderTimeout:
 		return 23
+	case CodeProviderUnsupported:
+		return 24
 	case CodeCacheUnavailable:
 		return 30
 	case CodeCacheSchemaMismatch:

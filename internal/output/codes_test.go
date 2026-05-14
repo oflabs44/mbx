@@ -18,6 +18,7 @@ func TestExitCode(t *testing.T) {
 		{CodeProviderNotFound, 21},
 		{CodeProviderIDInvalidated, 22},
 		{CodeProviderTimeout, 23},
+		{CodeProviderUnsupported, 24},
 		{CodeCacheUnavailable, 30},
 		{CodeCacheSchemaMismatch, 31},
 		{CodeConfigInvalid, 40},

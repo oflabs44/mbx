@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -10,6 +11,7 @@ import (
 	"github.com/oflabs44/mbx/internal/account"
 	"github.com/oflabs44/mbx/internal/config"
 	"github.com/oflabs44/mbx/internal/envelope"
+	"github.com/oflabs44/mbx/internal/mbxid"
 	"github.com/oflabs44/mbx/internal/output"
 )
 
@@ -22,6 +24,7 @@ func newEnvelopeCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	cmd.AddCommand(
 		newEnvelopeListCmd(g, stdout, stderr),
 		newEnvelopeSearchCmd(g, stdout, stderr),
+		newEnvelopeFlagCmd(g, stdout, stderr),
 	)
 	return cmd
 }
@@ -205,6 +208,125 @@ func canonicalInbox(acct *config.Account) string {
 		}
 	}
 	return "INBOX"
+}
+
+// flagResult is the JSON shape `mbx envelope flag` emits on success.
+// Includes the IDs touched and the applied diff so callers can pipe it
+// back into a downstream `envelope list` without re-deriving state.
+type flagResult struct {
+	IDs          []string `json:"ids"`
+	FlagsAdded   []string `json:"flags_added,omitempty"`
+	FlagsRemoved []string `json:"flags_removed,omitempty"`
+}
+
+func newEnvelopeFlagCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
+	var addRaw, removeRaw []string
+	c := &cobra.Command{
+		Use:   "flag <id>...",
+		Short: "Add or remove flags on one or more envelopes",
+		Long: "Apply a flag delta to one or more envelopes. Vocabulary: " +
+			"seen, flagged, answered, draft, deleted. Gmail supports only " +
+			"seen and flagged via this verb; IMAP supports the full set.",
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			add, err := parseFlagList(addRaw, "--add")
+			if err != nil {
+				return err
+			}
+			remove, err := parseFlagList(removeRaw, "--remove")
+			if err != nil {
+				return err
+			}
+			if len(add) == 0 && len(remove) == 0 {
+				return output.Errorf(output.CodeInputMissingFlag,
+					"envelope flag: pass at least one of --add or --remove")
+			}
+			ids, err := parseSharedAccountIDs(args)
+			if err != nil {
+				return err
+			}
+			return runEnvelopeFlag(cmd.Context(), g, stdout, stderr, ids, add, remove)
+		},
+	}
+	c.Flags().StringSliceVar(&addRaw, "add", nil, "Flag(s) to add. Repeatable or comma-separated. Vocabulary: seen, flagged, answered, draft, deleted.")
+	c.Flags().StringSliceVar(&removeRaw, "remove", nil, "Flag(s) to remove. Same vocabulary as --add.")
+	return c
+}
+
+// parseFlagList normalizes the raw StringSliceVar values (which cobra has
+// already split on commas and accumulated across repeats) into the typed
+// envelope.Flag vocabulary. Empty entries are dropped; unknown names
+// surface a stable usage.invalid error naming the offending flag.
+func parseFlagList(raw []string, flagName string) ([]envelope.Flag, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	out := make([]envelope.Flag, 0, len(raw))
+	for _, p := range raw {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		f, err := envelope.ParseFlag(p)
+		if err != nil {
+			return nil, output.Errorf(output.CodeUsageInvalid, "%s: %s", flagName, err.Error())
+		}
+		out = append(out, f)
+	}
+	return out, nil
+}
+
+// parseSharedAccountIDs parses positional ID args and rejects mixed-
+// account input. Cross-account flagging is a phase-7 fanout concern; for
+// now the command takes IDs from one account at a time.
+func parseSharedAccountIDs(args []string) ([]mbxid.ID, error) {
+	ids := make([]mbxid.ID, 0, len(args))
+	for i, a := range args {
+		id, err := mbxid.Parse(a)
+		if err != nil {
+			return nil, output.Errorf(output.CodeUsageInvalid, "parsing id %d: %s", i+1, err.Error())
+		}
+		if len(ids) > 0 && id.Account != ids[0].Account {
+			return nil, output.Errorf(output.CodeUsageInvalid,
+				"all ids must share an account (id %d has account %q, expected %q)",
+				i+1, id.Account, ids[0].Account)
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+func runEnvelopeFlag(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer, ids []mbxid.ID, add, remove []envelope.Flag) error {
+	acct, b, err := openBackendForID(ctx, g, ids[0])
+	if err != nil {
+		return err
+	}
+	defer closeBackend(b)
+	flagger, ok := b.(envelope.Flagger)
+	if !ok {
+		return unsupportedErr(acct, "flagging")
+	}
+	if err := envelope.ApplyFlags(ctx, flagger, ids, add, remove); err != nil {
+		return err
+	}
+	data := flagResult{
+		IDs:          idsToStrings(ids),
+		FlagsAdded:   flagsToStrings(add),
+		FlagsRemoved: flagsToStrings(remove),
+	}
+	meta := envelopeListMeta{AccountsQueried: []string{ids[0].Account}}
+	return output.NewWriter(stdout, stderr, g.format()).Success(data, meta)
+}
+
+func flagsToStrings(in []envelope.Flag) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]string, len(in))
+	for i, f := range in {
+		out[i] = string(f)
+	}
+	return out
 }
 
 // requireSingleAccount enforces phase-2's single-account scope. Phase 7

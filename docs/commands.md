@@ -58,7 +58,7 @@ Error (stderr, non-zero exit):
 | `1` | Generic error |
 | `2` | Invalid usage / bad flags (`usage.invalid`, `input.missing_flag`, `input.ambiguous_body`) |
 | `10–19` | Auth (`10` refresh failed, `11` missing write_cmd, `12` invalid credentials, ...) |
-| `20–29` | Provider (`20` rate limited, `21` not found, `22` ID invalidated, `23` network timeout, ...) |
+| `20–29` | Provider (`20` rate limited, `21` not found, `22` ID invalidated, `23` network timeout, `24` capability unsupported, ...) |
 | `30–39` | Cache (`30` unavailable, `31` schema mismatch, ...) |
 | `40–49` | Config (`40` invalid TOML, `41` unknown account, ...) |
 
@@ -140,19 +140,56 @@ Output:
 
 ### `mbx folder add -a <acc> <name>`
 
-Create folder. For Gmail, creates a user label.
+Create a folder. On Gmail, creates a user-visible label.
+
+```bash
+mbx folder add -a work "Project Alpha"
+```
 
 ### `mbx folder delete -a <acc> <name>`
 
-Delete folder. Fails on non-empty unless `--force`.
+Delete a folder. On most IMAP servers, DELETE refuses non-empty mailboxes; `--force` first purges then deletes. On Gmail, labels are not message containers, so delete only removes the label from every message it carried (the messages stay); `--force` is accepted but has no effect.
+
+| Flag | Description |
+|---|---|
+| `--force` | IMAP: purge first if non-empty. Gmail: no-op. |
+
+```bash
+mbx folder delete -a work "Project Alpha"
+mbx folder delete -a work "Old Stuff" --force
+```
 
 ### `mbx folder expunge -a <acc> <name>`
 
-Permanently remove messages already flagged `\Deleted`. IMAP-specific; no-op on Gmail.
+Permanently remove messages already flagged `\Deleted` from the folder. IMAP-specific: SELECT + EXPUNGE. On Gmail this is a no-op (server-side Trash auto-purges after 30 days) — the verb succeeds without doing anything, so cross-provider scripts can run it unconditionally.
+
+```bash
+mbx folder expunge -a work INBOX
+```
 
 ### `mbx folder purge -a <acc> <name>`
 
-Delete *all* messages in the folder. Destructive; requires `--yes` to confirm.
+Delete **every** message in the folder. Irreversible; requires `--yes`.
+
+| Flag | Description |
+|---|---|
+| `--yes` | Required confirmation. Missing → `input.missing_flag` (exit 2). |
+
+- IMAP: SELECT, `STORE 1:* +FLAGS.SILENT \Deleted`, `EXPUNGE`. The folder itself remains. If STORE succeeds but EXPUNGE fails, messages stay `\Deleted`-flagged — re-run purge (or `expunge`) to finish.
+- Gmail: list every message carrying the label, then `users.messages.delete` each (hard-delete, no Trash hop). **Surprise worth knowing**: Gmail messages routinely carry multiple labels. Purging a label hard-deletes every message *also* carrying it, regardless of any other folder/label membership — purging "Receipts" wipes Receipts-tagged messages even if they're also in INBOX. Almost never what you want for non-leaf labels.
+
+```bash
+mbx folder purge -a work "Project Alpha" --yes
+```
+
+**Success shape** (all four verbs):
+```json
+{
+  "v": 1,
+  "data": { "name": "Project Alpha", "op": "purge" },
+  "meta": { "accounts_queried": ["work"] }
+}
+```
 
 ---
 
@@ -237,7 +274,7 @@ Output:
 
 ### `mbx envelope flag <id>...`
 
-Add or remove flags on one or more envelopes.
+Add or remove flags on one or more envelopes. All IDs must share an account.
 
 ```bash
 mbx envelope flag gmail:work:18f3... --add seen
@@ -246,8 +283,29 @@ mbx envelope flag imap:work:INBOX:1:42 imap:work:INBOX:1:43 --add flagged --remo
 
 | Flag | Description |
 |---|---|
-| `--add <flag>` | Repeatable. Vocabulary: `seen`, `flagged`, `answered`, `draft`, `deleted`. |
-| `--remove <flag>` | Repeatable. Same vocabulary. |
+| `--add <flag>[,<flag>...]` | Repeatable or comma-separated. Vocabulary: `seen`, `flagged`, `answered`, `draft`, `deleted`. |
+| `--remove <flag>[,<flag>...]` | Repeatable or comma-separated. Same vocabulary. |
+
+At least one of `--add` / `--remove` must be non-empty.
+
+Multi-ID input is **fail-fast**: the first ID (Gmail) or folder group (IMAP) that fails aborts the rest. Earlier mutations are already applied server-side. The supported flag diffs are idempotent, so retrying the same command after a transient failure is safe.
+
+**Provider support:**
+- IMAP: full vocabulary (`\Seen`, `\Flagged`, `\Answered`, `\Draft`, `\Deleted`).
+- Gmail: only `seen` and `flagged` (maps to `UNREAD`-inverse and `STARRED` labels). `answered` / `draft` / `deleted` return `provider.unsupported` (exit 24) — use `message delete` for trash/delete semantics.
+
+Success shape:
+```json
+{
+  "v": 1,
+  "data": {
+    "ids": ["imap:work:INBOX:1:42", "imap:work:INBOX:1:43"],
+    "flags_added": ["flagged"],
+    "flags_removed": ["seen"]
+  },
+  "meta": { "accounts_queried": ["work"] }
+}
+```
 
 Write-throughs to cache best-effort. See [ADR-0003](./adr/0003-cache-as-derived-state.md).
 
@@ -327,48 +385,138 @@ EOF
 | `--html` | Treat body as HTML (sets MIME `text/html`). |
 | `--attach <path>` | Repeatable. |
 | `--reply-to <addr>` | Override Reply-To. |
-| `--draft` | Save as draft, don't send. |
+
+**From address:** taken from `accounts.<name>.email`. Required at config-load time.
+
+**Body input rule:** exactly one of `--body` / `--body-file` / `--body-stdin`. Missing → `input.missing_flag` (exit 2); two or more → `input.ambiguous_body` (exit 2).
+
+**Provider routing:**
+- Gmail accounts: `users.messages.send` over the Gmail HTTP API (the `message.send.backend` block is forbidden for Gmail).
+- IMAP accounts: SMTP via `message.send.backend.*` (host/port/encryption/login/auth). Auth is NOT inherited from `backend.auth.*` — configure explicitly.
+
+Success shape:
+```json
+{
+  "v": 1,
+  "data": {
+    "from": "you@company.com",
+    "to": ["alex@company.com"],
+    "cc": ["lead@company.com"],
+    "subject": "Status"
+  },
+  "meta": { "accounts_queried": ["work"] }
+}
+```
+
+Bcc never appears in the body delivered to recipients. On SMTP, the addresses are sent via RCPT TO only; on Gmail, the API receives a `Bcc:` header (so it knows to deliver) and strips it before delivery.
 
 Does not write-through to cache (only mutation of existing rows write-through).
 
 ### `mbx message reply <id>`
 
-Reply to a message. Account, To, References, In-Reply-To are derived from the source message.
+Reply to a message. Account, To, References, In-Reply-To, and Subject are derived from the source.
 
 ```bash
-mbx message reply gmail:work:18f3... --body-stdin <<<"Acknowledged."
-mbx message reply gmail:work:18f3... --all --body-stdin <<<"Team, ..."
+mbx message reply gmail:work:18f3... --body "Acknowledged."
+mbx message reply gmail:work:18f3... --all --quote --body-stdin <<<"Team, ..."
 ```
 
-Same body/attach flags as `send`. Plus:
 | Flag | Description |
 |---|---|
-| `--all` | Reply to all recipients (To + Cc). |
-| `--quote` | Include quoted original below body. |
+| `--all` | Reply to all: To = source.From; Cc = source.To + source.Cc minus the replying account's own address. |
+| `--quote` | Append the source body quoted (`> ` prefix) below the new body, with an attribution line. |
+| `--body` / `--body-file` / `--body-stdin` | Exactly one required. Same rules as `send`. |
+| `--html` | Treat body as HTML. |
+| `--attach <path>` | Repeatable. |
+| `--reply-to <addr>` | Override Reply-To. |
+
+**Derived headers:** `In-Reply-To = source.Message-ID`; `References = source.References + source.Message-ID` (or just `Message-ID` when the source has no References).
+
+**Subject:** `Re: <original>` unless the source already starts with `Re:` (case-insensitive — avoids "Re: Re:" stacking).
+
+Success shape mirrors `send`.
 
 ### `mbx message forward <id>`
 
+Forward a message. The original is always quoted below the new body (the point of forwarding).
+
 ```bash
-mbx message forward gmail:work:18f3... --to colleague@company.com --body-stdin <<<"FYI"
+mbx message forward gmail:work:18f3... --to colleague@company.com --body "FYI"
+mbx message forward imap:work:INBOX:1:42 --to a@x --cc b@y --body-stdin <<<"see below"
 ```
 
-Same body/attach flags as `send`. Plus `--to` (required).
+| Flag | Description |
+|---|---|
+| `--to <addr>` | Required. Repeatable. |
+| `--cc <addr>` / `--bcc <addr>` | Repeatable. |
+| `--body` / `--body-file` / `--body-stdin` | Exactly one required. |
+| `--html` | Treat body as HTML. |
+| `--attach <path>` | Repeatable. New attachments only — the source's attachments are not re-attached automatically. |
+| `--reply-to <addr>` | Override Reply-To. |
+
+**Subject:** `Fwd: <original>` unless already prefixed with `Fwd:` or `Fw:` (case-insensitive).
+
+**Threading:** forwards do NOT carry `In-Reply-To` / `References` — the new recipients aren't part of the source thread.
+
+Success shape mirrors `send`.
 
 ### `mbx message move <id>... <folder>`
 
+Move one or more messages to a destination folder. All IDs must share an account.
+
 ```bash
 mbx message move gmail:work:18f3... "Archive"
+mbx message move imap:work:INBOX:1:42 imap:work:INBOX:1:43 "Archive"
 ```
 
-For Gmail, moves between labels (removes current `folders` set membership, adds target). For IMAP, IMAP MOVE or COPY+EXPUNGE fallback.
+**Provider behaviour:**
+- Gmail: adds the dest label and removes `INBOX`. The mbx ID is unchanged (Gmail messages are stable across label changes). If the source isn't in `INBOX`, the remove is a server-side no-op.
+- IMAP: uses the server's `MOVE` extension when present; falls back to `COPY`+`STORE`+`EXPUNGE` automatically. New IDs are emitted from the server's `COPYUID` response (requires `UIDPLUS` or IMAP4rev2); on servers without that, `new_ids` is empty and the caller must re-list to address the messages.
+
+Success shape:
+```json
+{
+  "v": 1,
+  "data": {
+    "ids": ["imap:work:INBOX:1:42"],
+    "new_ids": ["imap:work:Archive:7:91"],
+    "dest": "Archive"
+  },
+  "meta": { "accounts_queried": ["work"] }
+}
+```
+
+Multi-ID input is **fail-fast** across folders. `MOVE` is **not** idempotent (re-running after partial failure will report "message not found" on the IDs already moved); re-list to recover. `COPY` is idempotent in the sense that copies accumulate, not that the operation is no-op on retry.
 
 ### `mbx message copy <id>... <folder>`
 
-Same as `move` but doesn't remove from source.
+Same flag and output shape as `move`, but the source UIDs remain valid.
+
+For Gmail, copy adds the dest label without removing any. The "copy" still refers to the same single Gmail message; the returned `new_ids` mirrors the input.
 
 ### `mbx message delete <id>...`
 
-Move to trash by default. `--permanent` skips trash.
+Move to trash by default; `--permanent` hard-deletes.
+
+```bash
+mbx message delete gmail:work:18f3...                       # → Trash label
+mbx message delete imap:work:INBOX:1:42 --permanent          # STORE \Deleted + EXPUNGE
+```
+
+| Flag | Description |
+|---|---|
+| `--permanent` | Skip trash; hard-delete. Irreversible. |
+
+**Provider behaviour:**
+- Gmail: default → `users.messages.trash` (recoverable); `--permanent` → `users.messages.delete`.
+- IMAP: default → `MOVE` to `folder.aliases.trash` (must be configured per account; `config.invalid` / exit 40 if unset). `--permanent` → `STORE +FLAGS.SILENT \Deleted` then `UID EXPUNGE` (or plain `EXPUNGE` on servers without `UIDPLUS`).
+
+**Retry semantics on partial failure (multi-ID):**
+- Default delete (trash, both providers) is idempotent: re-running over the same ids is safe.
+- `--permanent` Gmail: NOT safe to retry — already-deleted ids return 404. Re-list before retrying.
+- `--permanent` IMAP: if `STORE \Deleted` succeeds but `EXPUNGE` fails, messages remain `\Deleted`-flagged but visible in the source folder. Re-running `--permanent` completes the operation.
+
+Success shape mirrors `move`/`copy` but omits `new_ids` and `dest`.
 
 ---
 

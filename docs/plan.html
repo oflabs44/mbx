@@ -313,7 +313,7 @@
   <div class="phase-header">
     <span class="phase-id">phase 4</span>
     <h2 class="phase-title">Write path</h2>
-    <span class="phase-status">pending</span>
+    <span class="phase-status done">done</span>
   </div>
   <div class="phase-body">
     <p class="phase-goal">Mutating ops on both providers: flags, moves, deletes, send, reply, forward. Folder mutation too.</p>
@@ -322,19 +322,19 @@
       <div><strong>Unblocks:</strong> phase 6 (cache write-through has nothing to mirror without this)</div>
     </div>
     <ul class="task-list">
-      <li class="task"><input type="checkbox" id="t-4-1"><label for="t-4-1">Consumer interfaces: <code>EnvelopeFlagger</code>, <code>MessageMover</code>, <code>MessageCopier</code>, <code>MessageDeleter</code></label></li>
-      <li class="task"><input type="checkbox" id="t-4-2"><label for="t-4-2">Gmail impls (labels diff for move; <code>users.messages.trash</code> / <code>delete</code>)</label></li>
-      <li class="task"><input type="checkbox" id="t-4-3"><label for="t-4-3">IMAP impls (<code>STORE</code> flags; <code>MOVE</code> with <code>COPY</code>+<code>EXPUNGE</code> fallback)</label></li>
-      <li class="task"><input type="checkbox" id="t-4-4"><label for="t-4-4"><code>mbx envelope flag &lt;id&gt;... --add/--remove</code> with normalized vocabulary (<code>seen</code>, <code>flagged</code>, <code>answered</code>, <code>draft</code>, <code>deleted</code>)</label></li>
-      <li class="task"><input type="checkbox" id="t-4-5"><label for="t-4-5"><code>mbx message move</code>, <code>copy</code>, <code>delete</code> (with <code>--permanent</code>)</label></li>
-      <li class="task"><input type="checkbox" id="t-4-6"><label for="t-4-6">Body input: validate exactly-one of <code>--body</code> / <code>--body-file</code> / <code>--body-stdin</code>; structured error otherwise</label></li>
-      <li class="task"><input type="checkbox" id="t-4-7"><label for="t-4-7">MIME composer in <code>internal/message/compose/</code> using <code>emersion/go-message</code>: text/plain, text/html, attachments</label></li>
-      <li class="task"><input type="checkbox" id="t-4-8"><label for="t-4-8">Gmail send: <code>users.messages.send</code> with raw MIME body</label></li>
-      <li class="task"><input type="checkbox" id="t-4-9"><label for="t-4-9">SMTP send via <code>emersion/go-smtp</code> client for IMAP accounts (auth inherits from backend unless overridden)</label></li>
-      <li class="task"><input type="checkbox" id="t-4-10"><label for="t-4-10"><code>mbx message send</code></label></li>
-      <li class="task"><input type="checkbox" id="t-4-11"><label for="t-4-11"><code>mbx message reply</code> (with <code>--all</code>, <code>--quote</code>); preserves <code>In-Reply-To</code> + <code>References</code></label></li>
-      <li class="task"><input type="checkbox" id="t-4-12"><label for="t-4-12"><code>mbx message forward</code></label></li>
-      <li class="task"><input type="checkbox" id="t-4-13"><label for="t-4-13">Folder mutation: <code>mbx folder add</code>, <code>delete</code>, <code>expunge</code>, <code>purge</code> (with <code>--yes</code> confirmation)</label></li>
+      <li class="task"><input type="checkbox" id="t-4-1" checked><label for="t-4-1">Consumer interfaces: <code>EnvelopeFlagger</code>, <code>MessageMover</code>, <code>MessageCopier</code>, <code>MessageDeleter</code></label></li>
+      <li class="task"><input type="checkbox" id="t-4-2" checked><label for="t-4-2">Gmail impls (labels diff for move; <code>users.messages.trash</code> / <code>delete</code>)</label></li>
+      <li class="task"><input type="checkbox" id="t-4-3" checked><label for="t-4-3">IMAP impls (<code>STORE</code> flags; <code>MOVE</code> with <code>COPY</code>+<code>EXPUNGE</code> fallback)</label></li>
+      <li class="task"><input type="checkbox" id="t-4-4" checked><label for="t-4-4"><code>mbx envelope flag &lt;id&gt;... --add/--remove</code> with normalized vocabulary (<code>seen</code>, <code>flagged</code>, <code>answered</code>, <code>draft</code>, <code>deleted</code>)</label></li>
+      <li class="task"><input type="checkbox" id="t-4-5" checked><label for="t-4-5"><code>mbx message move</code>, <code>copy</code>, <code>delete</code> (with <code>--permanent</code>)</label></li>
+      <li class="task"><input type="checkbox" id="t-4-6" checked><label for="t-4-6">Body input: validate exactly-one of <code>--body</code> / <code>--body-file</code> / <code>--body-stdin</code>; structured error otherwise</label></li>
+      <li class="task"><input type="checkbox" id="t-4-7" checked><label for="t-4-7">MIME composer in <code>internal/message/compose/</code> using <code>emersion/go-message</code>: text/plain, text/html, attachments</label></li>
+      <li class="task"><input type="checkbox" id="t-4-8" checked><label for="t-4-8">Gmail send: <code>users.messages.send</code> with raw MIME body</label></li>
+      <li class="task"><input type="checkbox" id="t-4-9" checked><label for="t-4-9">SMTP send via <code>emersion/go-smtp</code> client for IMAP accounts (auth inherits from backend unless overridden)</label></li>
+      <li class="task"><input type="checkbox" id="t-4-10" checked><label for="t-4-10"><code>mbx message send</code></label></li>
+      <li class="task"><input type="checkbox" id="t-4-11" checked><label for="t-4-11"><code>mbx message reply</code> (with <code>--all</code>, <code>--quote</code>); preserves <code>In-Reply-To</code> + <code>References</code></label></li>
+      <li class="task"><input type="checkbox" id="t-4-12" checked><label for="t-4-12"><code>mbx message forward</code></label></li>
+      <li class="task"><input type="checkbox" id="t-4-13" checked><label for="t-4-13">Folder mutation: <code>mbx folder add</code>, <code>delete</code>, <code>expunge</code>, <code>purge</code> (with <code>--yes</code> confirmation)</label></li>
     </ul>
   </div>
 </section>
