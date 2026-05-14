@@ -344,7 +344,7 @@
   <div class="phase-header">
     <span class="phase-id">phase 5</span>
     <h2 class="phase-title">Threading</h2>
-    <span class="phase-status">pending</span>
+    <span class="phase-status done">done</span>
   </div>
   <div class="phase-body">
     <p class="phase-goal">Universal threading across providers — server-side fast path when supported, ported pimalaya/core algorithm otherwise.</p>
@@ -353,13 +353,13 @@
       <div><strong>Unblocks:</strong> phase 8 (polish)</div>
     </div>
     <ul class="task-list">
-      <li class="task"><input type="checkbox" id="t-5-1"><label for="t-5-1">Gmail: surface native <code>threadId</code> as the mbx thread ID; <code>users.threads.get</code> for full thread</label></li>
-      <li class="task"><input type="checkbox" id="t-5-2"><label for="t-5-2">IMAP: probe <code>CAPABILITY</code> for <code>THREAD=REFERENCES</code>; use <code>UID THREAD REFERENCES</code> command when present</label></li>
-      <li class="task"><input type="checkbox" id="t-5-3"><label for="t-5-3">Port pimalaya/core thread algorithm to Go (<code>internal/envelope/thread.go</code>): adjacency map keyed by Message-ID, virtual root node</label></li>
-      <li class="task"><input type="checkbox" id="t-5-4"><label for="t-5-4">Patch port: canonicalize Message-IDs (trim <code>&lt; &gt;</code>, whitespace)</label></li>
-      <li class="task"><input type="checkbox" id="t-5-5"><label for="t-5-5">Patch port: fall back to last <code>References</code> entry when <code>In-Reply-To</code> missing/unresolvable</label></li>
-      <li class="task"><input type="checkbox" id="t-5-6"><label for="t-5-6">Bounded working window (<code>backend.thread_window</code>, default 1000) for client-side fallback</label></li>
-      <li class="task"><input type="checkbox" id="t-5-7"><label for="t-5-7"><code>mbx envelope thread &lt;id&gt;</code> returns ordered envelopes + depth map</label></li>
+      <li class="task"><input type="checkbox" id="t-5-1" checked><label for="t-5-1">Gmail: surface native <code>threadId</code> as the mbx thread ID; <code>users.threads.get</code> for full thread</label></li>
+      <li class="task"><input type="checkbox" id="t-5-2" checked><label for="t-5-2">IMAP: probe <code>CAPABILITY</code> for <code>THREAD=REFERENCES</code>; use <code>UID THREAD REFERENCES</code> command when present</label></li>
+      <li class="task"><input type="checkbox" id="t-5-3" checked><label for="t-5-3">Port pimalaya/core thread algorithm to Go (<code>internal/envelope/thread.go</code>): adjacency map keyed by Message-ID, virtual root node</label></li>
+      <li class="task"><input type="checkbox" id="t-5-4" checked><label for="t-5-4">Patch port: canonicalize Message-IDs (trim <code>&lt; &gt;</code>, whitespace)</label></li>
+      <li class="task"><input type="checkbox" id="t-5-5" checked><label for="t-5-5">Patch port: fall back to last <code>References</code> entry when <code>In-Reply-To</code> missing/unresolvable</label></li>
+      <li class="task"><input type="checkbox" id="t-5-6" checked><label for="t-5-6">Bounded working window (<code>backend.thread_window</code>, default 1000) for client-side fallback</label></li>
+      <li class="task"><input type="checkbox" id="t-5-7" checked><label for="t-5-7"><code>mbx envelope thread &lt;id&gt;</code> returns ordered envelopes + depth map</label></li>
     </ul>
   </div>
 </section>
