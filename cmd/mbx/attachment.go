@@ -63,11 +63,11 @@ func newAttachmentDownloadCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.C
 }
 
 func runAttachmentList(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer, msgID mbxid.ID) error {
-	acct, err := lookupAccountForID(g, msgID)
+	cname, acct, err := lookupAccountForID(g, msgID)
 	if err != nil {
 		return err
 	}
-	backend, err := newBackend(ctx, msgID.Account, acct)
+	backend, err := newBackend(ctx, cname, acct)
 	if err != nil {
 		return err
 	}
@@ -80,11 +80,11 @@ func runAttachmentList(ctx context.Context, g *GlobalFlags, stdout, stderr io.Wr
 }
 
 func runAttachmentDownload(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer, msgID mbxid.ID, index int, outPath string) error {
-	acct, err := lookupAccountForID(g, msgID)
+	cname, acct, err := lookupAccountForID(g, msgID)
 	if err != nil {
 		return err
 	}
-	backend, err := newBackend(ctx, msgID.Account, acct)
+	backend, err := newBackend(ctx, cname, acct)
 	if err != nil {
 		return err
 	}

@@ -7,7 +7,7 @@ mbx is a CLI tool for AI-driven email work. It is invoked per-command from skill
 ### Account & transport
 
 **Account**:
-A named entry in the user's config representing a single mailbox. Has exactly one **Backend**; `imap` accounts also have one **Send Backend**. Identified by a user-chosen short name (`work`, `gmail-personal`).
+A named entry in the user's config representing a single mailbox. Has exactly one **Backend**; `imap` accounts also have one **Send Backend**. Identified by a user-chosen short **canonical name** (`work`, `gmail-personal`), plus an optional list of **aliases** (secondary names from prior renames, per ADR-0007). Lookups accept either; mbx IDs minted by mbx always carry the canonical name.
 _Avoid_: profile, mailbox, identity.
 
 **Backend**:

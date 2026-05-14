@@ -33,7 +33,7 @@ backend.auth.refresh-token.write_cmd = "op item edit mbx-gmail refresh[password]
 	if err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	a, ok := c.Account("gmail-personal")
+	_, a, ok := c.Resolve("gmail-personal")
 	if !ok {
 		t.Fatal("account not found")
 	}
@@ -339,6 +339,85 @@ message.send.backend.auth.cmd        = "echo p"
 folder.aliases.inbox = "INBOX"
 `,
 			want: ErrUnexpectedSection,
+		},
+		{
+			name: "alias collides with another account's canonical name",
+			cfg: `
+[accounts.a]
+email = "a@y"
+aliases = ["b"]
+
+backend.type = "gmail"
+backend.login = "a@y"
+backend.auth.type = "oauth2"
+backend.auth.client-id = "id"
+backend.auth.auth-url = "https://a"
+backend.auth.token-url = "https://t"
+backend.auth.refresh-token.cmd = "echo x"
+backend.auth.refresh-token.write_cmd = "cat >/dev/null"
+
+[accounts.b]
+email = "b@y"
+
+backend.type = "gmail"
+backend.login = "b@y"
+backend.auth.type = "oauth2"
+backend.auth.client-id = "id"
+backend.auth.auth-url = "https://a"
+backend.auth.token-url = "https://t"
+backend.auth.refresh-token.cmd = "echo x"
+backend.auth.refresh-token.write_cmd = "cat >/dev/null"
+`,
+			want: ErrInvalidValue,
+		},
+		{
+			name: "two accounts claim the same alias",
+			cfg: `
+[accounts.a]
+email = "a@y"
+aliases = ["shared"]
+
+backend.type = "gmail"
+backend.login = "a@y"
+backend.auth.type = "oauth2"
+backend.auth.client-id = "id"
+backend.auth.auth-url = "https://a"
+backend.auth.token-url = "https://t"
+backend.auth.refresh-token.cmd = "echo x"
+backend.auth.refresh-token.write_cmd = "cat >/dev/null"
+
+[accounts.b]
+email = "b@y"
+aliases = ["shared"]
+
+backend.type = "gmail"
+backend.login = "b@y"
+backend.auth.type = "oauth2"
+backend.auth.client-id = "id"
+backend.auth.auth-url = "https://a"
+backend.auth.token-url = "https://t"
+backend.auth.refresh-token.cmd = "echo x"
+backend.auth.refresh-token.write_cmd = "cat >/dev/null"
+`,
+			want: ErrInvalidValue,
+		},
+		{
+			name: "self-aliasing rejected",
+			cfg: `
+[accounts.a]
+email = "a@y"
+aliases = ["a"]
+
+backend.type = "gmail"
+backend.login = "a@y"
+backend.auth.type = "oauth2"
+backend.auth.client-id = "id"
+backend.auth.auth-url = "https://a"
+backend.auth.token-url = "https://t"
+backend.auth.refresh-token.cmd = "echo x"
+backend.auth.refresh-token.write_cmd = "cat >/dev/null"
+`,
+			want: ErrInvalidValue,
 		},
 		{
 			name: "encryption.type invalid",

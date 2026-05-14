@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"slices"
 
 	"github.com/oflabs44/mbx/internal/attachment"
 	"github.com/oflabs44/mbx/internal/mbxid"
@@ -60,13 +61,14 @@ func (c *Client) DownloadAttachment(ctx context.Context, msgID mbxid.ID, index i
 }
 
 // assertOwns rejects mbx IDs that aren't gmail or that belong to a
-// different account on this client.
+// different account on this client. An ID minted under one of the
+// account's aliases (ADR-0007) is accepted — same account, prior name.
 func (c *Client) assertOwns(id mbxid.ID) error {
 	if id.Provider != mbxid.Gmail {
 		return fmt.Errorf("gmail: id %q is not a gmail id", id.String())
 	}
-	if id.Account != c.Account {
-		return fmt.Errorf("gmail: id account %q does not match client %q", id.Account, c.Account)
+	if id.Account == c.Account || slices.Contains(c.Aliases, id.Account) {
+		return nil
 	}
-	return nil
+	return fmt.Errorf("gmail: id account %q does not match client %q", id.Account, c.Account)
 }

@@ -30,20 +30,49 @@ func TestList_SortedByName(t *testing.T) {
 
 func TestLookup_Unknown(t *testing.T) {
 	c := &config.Config{Accounts: map[string]*config.Account{"work": {Email: "x", Backend: config.Backend{Type: config.BackendIMAP}}}}
-	_, err := Lookup(c, "nope")
+	_, _, err := Lookup(c, "nope")
 	if !errors.Is(err, config.ErrUnknownAccount) {
 		t.Fatalf("want ErrUnknownAccount, got %v", err)
 	}
 }
 
-func TestLookup_Found(t *testing.T) {
+func TestLookup_FoundByCanonical(t *testing.T) {
 	want := &config.Account{Email: "x", Backend: config.Backend{Type: config.BackendIMAP}}
 	c := &config.Config{Accounts: map[string]*config.Account{"work": want}}
-	got, err := Lookup(c, "work")
+	cname, got, err := Lookup(c, "work")
 	if err != nil {
 		t.Fatalf("Lookup error: %v", err)
 	}
 	if got != want {
 		t.Fatalf("Lookup returned different pointer")
+	}
+	if cname != "work" {
+		t.Fatalf("canonical name = %q, want %q", cname, "work")
+	}
+}
+
+func TestLookup_FoundByAlias(t *testing.T) {
+	// Simulate a post-rename state: canonical name "personal-gmail",
+	// alias "personal". Lookup("personal") must return the canonical
+	// name "personal-gmail" so callers stamp stable IDs.
+	want := &config.Account{
+		Email:   "x",
+		Aliases: []string{"personal"},
+		Backend: config.Backend{Type: config.BackendGmail},
+	}
+	c := &config.Config{Accounts: map[string]*config.Account{"personal-gmail": want}}
+	// Manually trigger the index build that Load would perform.
+	if err := c.BuildAliasIndex(); err != nil {
+		t.Fatalf("buildAliasIndex: %v", err)
+	}
+	cname, got, err := Lookup(c, "personal")
+	if err != nil {
+		t.Fatalf("Lookup via alias error: %v", err)
+	}
+	if got != want {
+		t.Fatalf("Lookup via alias returned different pointer")
+	}
+	if cname != "personal-gmail" {
+		t.Fatalf("canonical name = %q, want %q", cname, "personal-gmail")
 	}
 }

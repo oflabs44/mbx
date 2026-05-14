@@ -141,15 +141,23 @@ func (c *Client) Probe(ctx context.Context) error {
 }
 
 // assertOwns rejects mbx IDs that aren't IMAP or that belong to a
-// different account on this client.
+// different account on this client. An ID minted under one of the
+// account's aliases (ADR-0007) is accepted — same account, prior name.
 func (c *Client) assertOwns(id mbxid.ID) error {
 	if id.Provider != mbxid.IMAP {
 		return fmt.Errorf("imap: id %q is not an imap id", id.String())
 	}
-	if id.Account != c.Account {
-		return fmt.Errorf("imap: id account %q does not match client %q", id.Account, c.Account)
+	if id.Account == c.Account {
+		return nil
 	}
-	return nil
+	if c.Cfg != nil {
+		for _, alias := range c.Cfg.Aliases {
+			if id.Account == alias {
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("imap: id account %q does not match client %q", id.Account, c.Account)
 }
 
 // selectAndVerify SELECTs the folder embedded in the mbx ID and

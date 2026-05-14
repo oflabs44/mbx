@@ -246,13 +246,15 @@ func runMessageDelete(ctx context.Context, g *GlobalFlags, stdout, stderr io.Wri
 
 // openBackendForID resolves the account from an mbx ID and opens the
 // backend. Pulled out so the three message-mutate handlers don't each
-// open-code the same 5-line prologue. Caller defers closeBackend on b.
+// open-code the same 5-line prologue. Backend is constructed with the
+// canonical account name so emitted mbx IDs use the stable form (ADR-0007).
+// Caller defers closeBackend on b.
 func openBackendForID(ctx context.Context, g *GlobalFlags, id mbxid.ID) (*config.Account, backend, error) {
-	acct, err := lookupAccountForID(g, id)
+	cname, acct, err := lookupAccountForID(g, id)
 	if err != nil {
 		return nil, nil, err
 	}
-	b, err := newBackend(ctx, id.Account, acct)
+	b, err := newBackend(ctx, cname, acct)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -453,26 +455,31 @@ func toAttachmentSpecs(paths []string) []message.AttachmentSpec {
 }
 
 // lookupAccountForID resolves an account from an mbx ID. The ID encodes
-// the account name; -a is optional but if present must agree.
-func lookupAccountForID(g *GlobalFlags, id mbxid.ID) (*config.Account, error) {
+// the account name (canonical or alias); -a is optional but if present
+// must resolve to the same canonical account. Returns the canonical
+// name so callers stamping new mbx IDs use the stable form (ADR-0007).
+func lookupAccountForID(g *GlobalFlags, id mbxid.ID) (string, *config.Account, error) {
 	if len(g.Accounts) > 1 {
-		return nil, output.Errorf(output.CodeUsageInvalid,
+		return "", nil, output.Errorf(output.CodeUsageInvalid,
 			"single-message commands take at most one -a (got %d)", len(g.Accounts))
-	}
-	if len(g.Accounts) == 1 && g.Accounts[0] != id.Account {
-		return nil, output.Errorf(output.CodeUsageInvalid,
-			"-a %q does not match the account encoded in the id (%q)", g.Accounts[0], id.Account)
 	}
 	c, err := loadConfig(g)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	acct, err := account.Lookup(c, id.Account)
+	cname, acct, err := account.Lookup(c, id.Account)
 	if err != nil {
-		return nil, output.Errorf(output.CodeConfigUnknownAccount, "%s", err.Error()).
+		return "", nil, output.Errorf(output.CodeConfigUnknownAccount, "%s", err.Error()).
 			WithDetails("account", id.Account)
 	}
-	return acct, nil
+	if len(g.Accounts) == 1 {
+		flagCname, _, ok := c.Resolve(g.Accounts[0])
+		if !ok || flagCname != cname {
+			return "", nil, output.Errorf(output.CodeUsageInvalid,
+				"-a %q does not resolve to the account encoded in the id (%q)", g.Accounts[0], id.Account)
+		}
+	}
+	return cname, acct, nil
 }
 
 // replyFlags / forwardFlags embed bodyFlags (shared with sendFlags) and

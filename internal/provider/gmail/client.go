@@ -14,9 +14,13 @@ import (
 
 // Client wraps a gmail.Service plus the account name it was built for so
 // impl methods can stamp mbx IDs without being passed the name everywhere.
+// Aliases is the account's secondary-name list (ADR-0007); assertOwns
+// accepts IDs minted under any of them so prior IDs keep resolving after
+// a rename.
 type Client struct {
 	Account string
 	Login   string
+	Aliases []string
 	svc     *gmailv1.Service
 }
 
@@ -39,7 +43,7 @@ func New(ctx context.Context, name string, acct *config.Account) (*Client, error
 		return nil, fmt.Errorf("gmail: new service for %q: %w", name, err)
 	}
 
-	return &Client{Account: name, Login: acct.Backend.Login, svc: svc}, nil
+	return &Client{Account: name, Login: acct.Backend.Login, Aliases: acct.Aliases, svc: svc}, nil
 }
 
 // Probe makes a lightweight authenticated call to verify the token works

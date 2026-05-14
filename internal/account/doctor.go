@@ -48,13 +48,13 @@ type DoctorReport struct {
 // a reporter, not a gate — its job is to surface state, not to fail the
 // command.
 func Doctor(ctx context.Context, c *config.Config, name string) (*DoctorReport, error) {
-	acct, err := Lookup(c, name)
+	cname, acct, err := Lookup(c, name)
 	if err != nil {
 		return nil, err
 	}
 
 	report := &DoctorReport{
-		Account:      name,
+		Account:      cname,
 		Config:       StatusOK,
 		Secrets:      StatusOK,
 		Auth:         StatusOK,

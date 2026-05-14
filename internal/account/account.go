@@ -36,11 +36,14 @@ func List(c *config.Config) []Info {
 	return out
 }
 
-// Lookup returns the named account or wraps config.ErrUnknownAccount.
-func Lookup(c *config.Config, name string) (*config.Account, error) {
-	a, ok := c.Account(name)
+// Lookup resolves the named account, accepting either the canonical name
+// or any alias. Returns the canonical name alongside the account so
+// callers stamping mbx IDs always use the stable form (ADR-0007). On
+// miss, wraps config.ErrUnknownAccount with the user-typed name.
+func Lookup(c *config.Config, name string) (canonical string, acct *config.Account, err error) {
+	cname, a, ok := c.Resolve(name)
 	if !ok {
-		return nil, fmt.Errorf("%w: %s", config.ErrUnknownAccount, name)
+		return "", nil, fmt.Errorf("%w: %s", config.ErrUnknownAccount, name)
 	}
-	return a, nil
+	return cname, a, nil
 }

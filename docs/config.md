@@ -107,6 +107,20 @@ message.send.backend.encryption.insecure = true
 
 For **IMAP+OAuth** (corporate Microsoft 365, Google Workspace IMAP), `backend.auth.type = "oauth2"` with the same nested secret blocks as Gmail above. `message.send.backend.auth.*` may use OAuth too.
 
+### `aliases` (per-account)
+
+Optional list of secondary names this account answers to. Lets you rename an account without invalidating previously-emitted mbx IDs that still embed the old name. See [ADR-0007](./adr/0007-account-renames-via-aliases.md).
+
+```toml
+[accounts.personal-gmail]
+aliases = ["personal"]
+# ...
+```
+
+When mbx resolves an alias, it stamps subsequently-emitted IDs with the **canonical** name, so the alias gradually fades as your skills re-list. `mbx account rename <old> <new>` is the safer way to set this up — it edits the section atomically and appends the old name to `aliases` for you.
+
+Collisions (an alias matching another account's canonical name, or two accounts claiming the same alias) are rejected at config-load with `config.invalid` (exit 40).
+
 ### `backend.thread_window` (IMAP only)
 
 Caps the corpus the client-side threading algorithm scans when the server doesn't advertise `THREAD=REFERENCES`. Default `1000`; the algorithm fetches the most-recent N envelopes in the anchor's folder and threads over them. Servers that do advertise THREAD ignore this knob — the server identifies the cluster.

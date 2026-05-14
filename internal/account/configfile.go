@@ -17,6 +17,15 @@ var ErrAccountExists = errors.New("account already present in config file")
 // section is present in the file (commented or otherwise).
 var ErrAccountAbsent = errors.New("account not present in config file")
 
+// ErrRenameTargetExists is returned by RenameAccount when the destination
+// name already appears in the file as an active or commented section.
+var ErrRenameTargetExists = errors.New("rename target already present in config file")
+
+// ErrRenameNeedsManualAliasMerge is returned by RenameAccount when the
+// source block already has an `aliases =` line — re-emitting one would
+// produce duplicate TOML keys. The user merges by hand and re-runs.
+var ErrRenameNeedsManualAliasMerge = errors.New("rename refused: account already has an aliases list; merge it by hand and rename again")
+
 const fileBanner = "# mbx config — see https://github.com/oflabs44/mbx/blob/main/docs/config.md\n\n"
 
 func sectionHeader(name string) string { return "[accounts." + name + "]" }
@@ -159,6 +168,85 @@ func headerText(line string) string {
 		}
 	}
 	return s
+}
+
+// RenameAccount rewrites `[accounts.<old>]` (and any `[accounts.<old>.*]`
+// sub-section headers) to use <new>, and inserts `aliases = ["<old>", ...]`
+// into the renamed block so previously-emitted mbx IDs keep resolving
+// (ADR-0007).
+//
+// Returns ErrAccountAbsent if `[accounts.<old>]` isn't in the file (active
+// or commented), and ErrRenameTargetExists if `[accounts.<new>]` already
+// appears. Does not touch external secret stores.
+func RenameAccount(path, oldName, newName string) error {
+	if oldName == newName {
+		return fmt.Errorf("rename: old and new names are identical (%q)", oldName)
+	}
+	if exists, err := HasAccount(path, newName); err != nil {
+		return err
+	} else if exists {
+		return fmt.Errorf("%w: %s", ErrRenameTargetExists, newName)
+	}
+	if exists, err := HasAccount(path, oldName); err != nil {
+		return err
+	} else if !exists {
+		return fmt.Errorf("%w: %s", ErrAccountAbsent, oldName)
+	}
+
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", path, err)
+	}
+	lines := strings.SplitAfter(string(b), "\n")
+
+	oldHeader := sectionHeader(oldName)
+	newHeader := sectionHeader(newName)
+	headerIdx, blockEnd := -1, len(lines)
+	for i, line := range lines {
+		leading := strings.TrimLeft(line, " \t")
+		if strings.HasPrefix(leading, "#") {
+			continue
+		}
+		if headerText(leading) == oldHeader {
+			lines[i] = newHeader + trailingAfterHeader(line, oldHeader)
+			headerIdx = i
+			continue
+		}
+		if headerIdx >= 0 && strings.HasPrefix(leading, "[") {
+			if !headerBelongsTo(leading, oldName) {
+				blockEnd = i
+				break
+			}
+			// Sub-section header like [accounts.old.cache] → [accounts.new.cache].
+			lines[i] = strings.Replace(line, "accounts."+oldName, "accounts."+newName, 1)
+		}
+	}
+	if headerIdx < 0 {
+		return fmt.Errorf("%w: %s", ErrAccountAbsent, oldName)
+	}
+	for i := headerIdx + 1; i < blockEnd; i++ {
+		trimmed := strings.TrimLeft(lines[i], " \t")
+		if strings.HasPrefix(trimmed, "aliases") &&
+			strings.HasPrefix(strings.TrimLeft(strings.TrimPrefix(trimmed, "aliases"), " \t"), "=") {
+			return ErrRenameNeedsManualAliasMerge
+		}
+	}
+
+	insertion := "aliases = [\"" + oldName + "\"]\n"
+	lines = append(lines[:headerIdx+1], append([]string{insertion}, lines[headerIdx+1:]...)...)
+
+	return writeAtomic(path, []byte(strings.Join(lines, "")))
+}
+
+// trailingAfterHeader returns whatever followed the `]` of `header` on its
+// original line — typically just "\n", but possibly a trailing comment.
+// Preserves user-written comments through a rename.
+func trailingAfterHeader(line, header string) string {
+	_, after, ok := strings.Cut(line, header)
+	if !ok {
+		return ""
+	}
+	return after
 }
 
 // AddTemplate appends block to the config file at path, registering the

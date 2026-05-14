@@ -319,3 +319,87 @@ func TestTemplates_SubstituteName(t *testing.T) {
 		t.Errorf("imap template missing substituted header: %s", got)
 	}
 }
+
+func TestRenameAccount_HappyPath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "c.toml")
+	content := "[accounts.personal]\nemail = \"x@y\"\nbackend.type = \"gmail\"\n\n[accounts.work]\nemail = \"z@w\"\nbackend.type = \"imap\"\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := RenameAccount(path, "personal", "personal-gmail"); err != nil {
+		t.Fatalf("RenameAccount: %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotS := string(got)
+	if !strings.Contains(gotS, "[accounts.personal-gmail]") {
+		t.Errorf("new header missing:\n%s", gotS)
+	}
+	if strings.Contains(gotS, "[accounts.personal]\n") {
+		t.Errorf("old header still active:\n%s", gotS)
+	}
+	if !strings.Contains(gotS, "aliases = [\"personal\"]") {
+		t.Errorf("alias line missing:\n%s", gotS)
+	}
+	if !strings.Contains(gotS, "[accounts.work]") {
+		t.Errorf("untouched account [accounts.work] should remain:\n%s", gotS)
+	}
+}
+
+func TestRenameAccount_RenamesSubSections(t *testing.T) {
+	// [accounts.old.cache] sub-sections must follow the parent rename.
+	path := filepath.Join(t.TempDir(), "c.toml")
+	content := "[accounts.old]\nemail = \"x@y\"\nbackend.type = \"imap\"\n\n[accounts.old.cache]\nsync_days = 30\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := RenameAccount(path, "old", "new"); err != nil {
+		t.Fatalf("RenameAccount: %v", err)
+	}
+	got, _ := os.ReadFile(path)
+	if !strings.Contains(string(got), "[accounts.new.cache]") {
+		t.Errorf("sub-section not renamed:\n%s", got)
+	}
+}
+
+func TestRenameAccount_TargetExists(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "c.toml")
+	content := "[accounts.a]\nemail = \"x@y\"\n\n[accounts.b]\nemail = \"z@w\"\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := RenameAccount(path, "a", "b")
+	if !errors.Is(err, ErrRenameTargetExists) {
+		t.Errorf("want ErrRenameTargetExists, got %v", err)
+	}
+}
+
+func TestRenameAccount_SourceAbsent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "c.toml")
+	if err := os.WriteFile(path, []byte("[accounts.a]\nemail = \"x\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := RenameAccount(path, "missing", "new")
+	if !errors.Is(err, ErrAccountAbsent) {
+		t.Errorf("want ErrAccountAbsent, got %v", err)
+	}
+}
+
+func TestRenameAccount_ExistingAliasesRefused(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "c.toml")
+	content := "[accounts.old]\nemail = \"x\"\naliases = [\"older\"]\nbackend.type = \"gmail\"\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := RenameAccount(path, "old", "new")
+	if !errors.Is(err, ErrRenameNeedsManualAliasMerge) {
+		t.Errorf("want ErrRenameNeedsManualAliasMerge, got %v", err)
+	}
+	// File should be unchanged on refusal.
+	got, _ := os.ReadFile(path)
+	if string(got) != content {
+		t.Errorf("file mutated on refusal:\n%s", got)
+	}
+}

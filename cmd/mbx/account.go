@@ -26,8 +26,61 @@ func newAccountCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 		newAccountAuthCmd(g, stdout, stderr),
 		newAccountDoctorCmd(g, stdout, stderr),
 		newAccountRemoveCmd(g, stdout, stderr),
+		newAccountRenameCmd(g, stdout, stderr),
 	)
 	return cmd
+}
+
+type accountRenameResult struct {
+	From  string `json:"from"`
+	To    string `json:"to"`
+	Path  string `json:"path"`
+	Alias string `json:"alias"`
+}
+
+func newAccountRenameCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
+	return &cobra.Command{
+		Use:   "rename <old> <new>",
+		Short: "Rename an account; the old name is added as an alias so prior mbx IDs keep resolving",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			oldName, newName := args[0], args[1]
+			path, err := resolveConfigPath(g)
+			if err != nil {
+				return err
+			}
+			if err := account.RenameAccount(path, oldName, newName); err != nil {
+				return mapRenameError(err, oldName, newName, path)
+			}
+			return output.NewWriter(stdout, stderr, g.format()).Success(accountRenameResult{
+				From:  oldName,
+				To:    newName,
+				Path:  path,
+				Alias: oldName,
+			}, nil)
+		},
+	}
+}
+
+func mapRenameError(err error, oldName, newName, path string) error {
+	switch {
+	case errors.Is(err, account.ErrAccountAbsent):
+		return output.Errorf(output.CodeConfigUnknownAccount,
+			"account %q not present in %s", oldName, path).
+			WithDetails("account", oldName).
+			WithDetails("path", path)
+	case errors.Is(err, account.ErrRenameTargetExists):
+		return output.Errorf(output.CodeConfigInvalid,
+			"target name %q already present in %s", newName, path).
+			WithDetails("account", newName).
+			WithDetails("path", path)
+	case errors.Is(err, account.ErrRenameNeedsManualAliasMerge):
+		return output.Errorf(output.CodeConfigInvalid,
+			"account %q already has an aliases list; merge by hand then re-run rename", oldName).
+			WithDetails("account", oldName).
+			WithDetails("path", path)
+	}
+	return output.Errorf(output.CodeConfigInvalid, "renaming account in %s: %s", path, err.Error())
 }
 
 func newAccountListCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
@@ -104,11 +157,12 @@ func newAccountAuthCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 			if err != nil {
 				return err
 			}
-			acct, err := account.Lookup(c, name)
+			cname, acct, err := account.Lookup(c, name)
 			if err != nil {
 				return output.Errorf(output.CodeConfigUnknownAccount, "%s", err.Error()).
 					WithDetails("account", name)
 			}
+			name = cname
 
 			authBlock := &acct.Backend.Auth
 			if authBlock.Type != config.AuthOAuth2 {

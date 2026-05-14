@@ -121,6 +121,22 @@ Output:
 
 Comment out the `[accounts.<name>]` block in config. Does not touch secrets in external stores.
 
+### `mbx account rename <old> <new>`
+
+Rename an account. Rewrites `[accounts.<old>]` (and any `[accounts.<old>.*]` sub-sections) to `<new>`, and inserts `aliases = ["<old>"]` so previously-emitted mbx IDs continue to resolve via [ADR-0007](./adr/0007-account-renames-via-aliases.md). Atomic; does not touch external secret stores.
+
+```bash
+mbx account rename personal personal-gmail
+```
+
+| Error | Code | Exit | Cause |
+|---|---|---|---|
+| target name already used | `config.invalid` | 40 | `[accounts.<new>]` already in the file |
+| source absent | `config.unknown_account` | 41 | `[accounts.<old>]` not in the file |
+| account already has an `aliases` list | `config.invalid` | 40 | Merge by hand then re-run rename |
+
+After rename, the old name resolves through the alias (`-a personal` still works), but mbx **stamps emitted IDs with the canonical new name**. Skills that hold old IDs continue to work; new IDs returned from any verb carry `<new>` going forward.
+
 ---
 
 ## `mbx folder`

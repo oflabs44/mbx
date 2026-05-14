@@ -24,10 +24,16 @@ type Config struct {
 	DownloadsDir string              `toml:"downloads-dir,omitempty"`
 	CacheDir     string              `toml:"cache-dir,omitempty"`
 	Accounts     map[string]*Account `toml:"accounts"`
+
+	// aliasToCanon is built in validate(): each entry maps an alias to
+	// the canonical account name it resolves to. Collisions are rejected
+	// at load time so a lookup never has to disambiguate. See ADR-0007.
+	aliasToCanon map[string]string `toml:"-"`
 }
 
 type Account struct {
 	Email   string   `toml:"email"`
+	Aliases []string `toml:"aliases,omitempty"`
 	Backend Backend  `toml:"backend"`
 	Message *Message `toml:"message,omitempty"`
 	Folder  *Folder  `toml:"folder,omitempty"`
@@ -258,10 +264,17 @@ func decode(r io.Reader, sourcePath string) (*Config, error) {
 	return &c, nil
 }
 
-// Account looks up a named account. The boolean reports presence.
-func (c *Config) Account(name string) (*Account, bool) {
-	a, ok := c.Accounts[name]
-	return a, ok
+// Resolve looks up an account by its canonical name or any of its aliases.
+// Returns the canonical name (so callers stamping new mbx IDs use the
+// stable form), the account, and ok=true on a hit. See ADR-0007.
+func (c *Config) Resolve(name string) (canonical string, acct *Account, ok bool) {
+	if a, hit := c.Accounts[name]; hit {
+		return name, a, true
+	}
+	if cname, hit := c.aliasToCanon[name]; hit {
+		return cname, c.Accounts[cname], true
+	}
+	return "", nil, false
 }
 
 func (c *Config) validate() error {
@@ -271,6 +284,37 @@ func (c *Config) validate() error {
 	for name, a := range c.Accounts {
 		if err := a.validate(); err != nil {
 			return fmt.Errorf("account %q: %w", name, err)
+		}
+	}
+	return c.BuildAliasIndex()
+}
+
+// BuildAliasIndex populates aliasToCanon and rejects collisions: an alias
+// matching another account's canonical name, or two accounts claiming the
+// same alias. Detecting at load means a downstream Resolve never has to
+// disambiguate.
+//
+// Load runs this automatically; the export exists for tests that
+// construct Config literals.
+func (c *Config) BuildAliasIndex() error {
+	c.aliasToCanon = map[string]string{}
+	for cname, a := range c.Accounts {
+		for _, alias := range a.Aliases {
+			if alias == "" {
+				return fmt.Errorf("%w: account %q has an empty alias", ErrInvalidValue, cname)
+			}
+			if alias == cname {
+				return fmt.Errorf("%w: account %q lists itself as an alias", ErrInvalidValue, cname)
+			}
+			if _, isCanonical := c.Accounts[alias]; isCanonical {
+				return fmt.Errorf("%w: alias %q on account %q collides with the canonical name of another account",
+					ErrInvalidValue, alias, cname)
+			}
+			if prior, taken := c.aliasToCanon[alias]; taken {
+				return fmt.Errorf("%w: alias %q claimed by both %q and %q",
+					ErrInvalidValue, alias, prior, cname)
+			}
+			c.aliasToCanon[alias] = cname
 		}
 	}
 	return nil

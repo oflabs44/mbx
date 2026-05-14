@@ -380,10 +380,10 @@ func requireSingleAccount(g *GlobalFlags) (string, *config.Account, error) {
 	if err != nil {
 		return "", nil, err
 	}
-	acct, err := account.Lookup(c, name)
+	cname, acct, err := account.Lookup(c, name)
 	if err != nil {
 		return "", nil, output.Errorf(output.CodeConfigUnknownAccount, "%s", err.Error()).
 			WithDetails("account", name)
 	}
-	return name, acct, nil
+	return cname, acct, nil
 }
