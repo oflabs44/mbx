@@ -56,11 +56,11 @@ Error (stderr, non-zero exit):
 |---|---|
 | `0` | Success |
 | `1` | Generic error |
-| `2` | Invalid usage / bad flags |
+| `2` | Invalid usage / bad flags (`usage.invalid`, `input.missing_flag`, `input.ambiguous_body`) |
 | `10–19` | Auth (`10` refresh failed, `11` missing write_cmd, `12` invalid credentials, ...) |
 | `20–29` | Provider (`20` rate limited, `21` not found, `22` ID invalidated, `23` network timeout, ...) |
 | `30–39` | Cache (`30` unavailable, `31` schema mismatch, ...) |
-| `40–49` | Config (`40` invalid TOML, `41` unknown account, `42` ambiguous body input, ...) |
+| `40–49` | Config (`40` invalid TOML, `41` unknown account, ...) |
 
 ---
 

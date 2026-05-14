@@ -147,8 +147,8 @@ This keeps the provider packages free of speculation about future operations and
 **After any code change, before reporting the task done**, run in this order:
 
 1. `make fmt && make lint && make test` — must all pass.
-2. Invoke the **code-simplifier** agent on the diff (or on the changed files when not yet committed). It will look for unnecessary abstractions, duplicated logic, and dead code.
-3. Invoke the **pr-review-toolkit** agents on the diff. Always run these two:
+2. Invoke the `pr-review-toolkit:code-simplifier` agent on the diff (or on the changed files when not yet committed). It will look for unnecessary abstractions, duplicated logic, and dead code.
+3. Invoke the other **pr-review-toolkit** agents on the diff. Always run these two:
    - `pr-review-toolkit:code-reviewer` — checks adherence to this file, CONTEXT.md, and the ADRs.
    - `pr-review-toolkit:silent-failure-hunter` — mbx does heavy error-path work (auth, network, parse, MIME); silent failures are a real risk.
 
@@ -157,7 +157,8 @@ This keeps the provider packages free of speculation about future operations and
    - `pr-review-toolkit:comment-analyzer` — when adding or modifying multi-line comments or doc comments.
    - `pr-review-toolkit:pr-test-analyzer` — when adding new functionality with test coverage implications.
 
-4. Address any findings from the agents in the same change. If a finding is intentional, document why (ADR-worthy → write one; otherwise a tight code comment).
+4. **Filter findings through the over-engineering lens before acting on them.** Reviewers — especially `silent-failure-hunter` and `code-reviewer` — bias toward defensive additions: extra validation, fallback paths, speculative error handling. For each finding, ask: does the failure mode this fix prevents actually exist in practice given our current architecture, or is it a hypothetical class of bugs we've explicitly chosen not to defend against? Apply real fixes; skip the ones that exist only because a reviewer thought of them.
+5. Address the surviving findings in the same change. If a finding is intentional or knowingly skipped, document why (ADR-worthy → write one; otherwise a tight code comment).
 
 Skip steps 2–3 only for trivial changes (typo fixes in docs, README link tweaks). A change that touches `.go` files always runs them.
 
