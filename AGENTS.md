@@ -33,7 +33,7 @@ If a change conflicts with one of those, the doc wins. If you believe the doc is
 
 These are non-negotiable without a new ADR superseding the existing one:
 
-- **Secrets**: never compile in a specific provider SDK. Always go through the `raw | keyring | cmd` / `read_cmd` + `write_cmd` shape. ([ADR-0001](./docs/adr/0001-secrets-resolution-model.md))
+- **Secrets**: never compile in a specific provider SDK. Always go through the `raw | keyring | cmd` (read) + `write_cmd` (rotated persistence) shape. ([ADR-0001](./docs/adr/0001-secrets-resolution-model.md))
 - **mbx IDs**: self-describing, stable, percent-encoded for IMAP folders. Single-message commands derive the account from the ID. ([ADR-0002](./docs/adr/0002-self-describing-message-ids.md))
 - **Cache**: derived state. Never authoritative. Live verbs never read from cache. Write-through is best-effort and never blocks command exit. ([ADR-0003](./docs/adr/0003-cache-as-derived-state.md))
 - **JSON contract**: every command emits `{ "v": 1, ... }` on stdout (success) or stderr (error) by default. No TTY-detection. Error `code` field is stable; `message` is not. ([ADR-0004](./docs/adr/0004-json-output-contract.md))

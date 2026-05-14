@@ -70,15 +70,12 @@ After a mutating remote write (`envelope flag`, `message move`, `message delete`
 ### Secrets
 
 **Secret**:
-A piece of confidential material (password, OAuth client secret, access token, refresh token) referenced from config. Each Secret is supplied via one of three variants (himalaya-style tagged sum): `raw` (inline, testing-only), `keyring` (OS keychain), or `cmd` (any external resolver via a shell command).
+A piece of confidential material (password, OAuth client secret, access token, refresh token) referenced from config. Each Secret is supplied via one of three variants (himalaya-style tagged sum): `raw` (inline, testing-only), `keyring` (OS keychain), or `cmd` (any external resolver via a shell command — stdout is the secret value).
 _Avoid_: credential, key.
 
 **write_cmd**:
-A shell command mbx invokes to *persist* a rotated secret back to the user's chosen store. mbx pipes the new value to the command's stdin. Mandatory for OAuth `refresh-token` on any account; mbx refuses `account auth` for accounts that lack it.
+A shell command mbx invokes to *persist* a rotated secret back to the user's chosen store. mbx pipes the new value to the command's stdin. Mandatory for OAuth `refresh-token` on any account; mbx refuses `account auth` for accounts that lack it. Pairs with `cmd` (read) on OAuth refresh-token blocks.
 _Avoid_: write hook, persist callback.
-
-**read_cmd** (alias: `cmd`):
-A shell command mbx invokes to *read* a secret. Stdout = secret value. The `cmd` and `read_cmd` keys are interchangeable; `read_cmd` is preferred when paired with `write_cmd` for symmetry.
 
 ## Relationships
 

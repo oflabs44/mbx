@@ -99,7 +99,7 @@ Run the OAuth flow for an OAuth account. Opens a browser, listens on `redirect-h
 
 ### `mbx account doctor <name>`
 
-Validate config and probe the account. Checks: TOML parse, all `read_cmd`s resolve, OAuth refresh or IMAP LOGIN succeeds, folder list works, server capabilities (THREAD, IDLE, ...).
+Validate config and probe the account. Checks: TOML parse, all `cmd` secrets resolve, OAuth refresh or IMAP LOGIN succeeds, folder list works, server capabilities (THREAD, IDLE, ...).
 
 Output:
 ```json

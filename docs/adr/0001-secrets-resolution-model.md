@@ -2,7 +2,7 @@
 
 mbx adopts himalaya's tagged-sum-per-secret model (`raw` | `keyring` | `cmd`) verbatim, and extends it with a symmetric `write_cmd` for OAuth refresh tokens. Every account's password, OAuth client secret, access token, and refresh token is supplied via one of those variants; for OAuth, mbx invokes `write_cmd` on rotation to persist the new token to whatever store the user prefers (1Password, `pass`, Bitwarden, keychain, etc.).
 
-This is the load-bearing decision that lets mbx be both *unopinionated about secrets providers* and *never write secrets to disk*. `cmd`/`read_cmd` covers any external resolver. `write_cmd` closes himalaya's known gap (issue [pimalaya/himalaya#582](https://github.com/pimalaya/himalaya/issues/582)) where rotated OAuth tokens can only be persisted to the OS keyring.
+This is the load-bearing decision that lets mbx be both *unopinionated about secrets providers* and *never write secrets to disk*. `cmd` covers any external resolver. `write_cmd` closes himalaya's known gap (issue [pimalaya/himalaya#582](https://github.com/pimalaya/himalaya/issues/582)) where rotated OAuth tokens can only be persisted to the OS keyring.
 
 ## Considered alternatives
 
