@@ -214,16 +214,16 @@
       <div><strong>Unblocks:</strong> all phases</div>
     </div>
     <ul class="task-list">
-      <li class="task"><input type="checkbox" id="t-0-1"><label for="t-0-1">Add <code>github.com/spf13/cobra</code>; wire <code>cmd/mbx/main.go</code> to a root command that prints help</label></li>
-      <li class="task"><input type="checkbox" id="t-0-2"><label for="t-0-2">Define global flags on root command: <code>-a</code>, <code>-o</code>, <code>-c</code>, <code>--strict</code>, <code>--verbose</code>, <code>--debug</code>, <code>--no-color</code></label></li>
+      <li class="task"><input type="checkbox" id="t-0-1" checked><label for="t-0-1">Add <code>github.com/spf13/cobra</code>; wire <code>cmd/mbx/main.go</code> to a root command that prints help</label></li>
+      <li class="task"><input type="checkbox" id="t-0-2" checked><label for="t-0-2">Define global flags on root command: <code>-a</code>, <code>-o</code>, <code>-c</code>, <code>--strict</code>, <code>--verbose</code>, <code>--debug</code>, <code>--no-color</code></label></li>
       <li class="task"><input type="checkbox" id="t-0-3"><label for="t-0-3">Pick TOML parser (<code>BurntSushi/toml</code> vs <code>pelletier/go-toml/v2</code>) and document choice in ADR-0005</label></li>
       <li class="task"><input type="checkbox" id="t-0-4"><label for="t-0-4">Implement <code>internal/config/</code>: TOML load + zod-style validation against typed account schemas</label></li>
       <li class="task"><input type="checkbox" id="t-0-5"><label for="t-0-5">Implement <code>internal/secret/</code>: resolver for <code>raw</code> / <code>keyring</code> / <code>cmd</code> / <code>read_cmd</code> / <code>write_cmd</code></label></li>
       <li class="task"><input type="checkbox" id="t-0-6"><label for="t-0-6">Implement <code>internal/mbxid/</code>: parse + encode + percent-encoding for IMAP folder segment</label></li>
-      <li class="task"><input type="checkbox" id="t-0-7"><label for="t-0-7">Implement <code>internal/output/</code>: <code>{v:1, data, meta}</code> success writer + <code>{v:1, error}</code> stderr writer</label></li>
-      <li class="task"><input type="checkbox" id="t-0-8"><label for="t-0-8">Define error code taxonomy + exit code map in <code>internal/output/codes.go</code></label></li>
-      <li class="task"><input type="checkbox" id="t-0-9"><label for="t-0-9">Root context with <code>signal.NotifyContext</code> for Ctrl-C handling; optional <code>--timeout</code> deadline</label></li>
-      <li class="task"><input type="checkbox" id="t-0-10"><label for="t-0-10">Smoke test: <code>mbx -o json</code> emits a versioned envelope; <code>mbx --no-such-flag</code> emits a structured error</label></li>
+      <li class="task"><input type="checkbox" id="t-0-7" checked><label for="t-0-7">Implement <code>internal/output/</code>: <code>{v:1, data, meta}</code> success writer + <code>{v:1, error}</code> stderr writer</label></li>
+      <li class="task"><input type="checkbox" id="t-0-8" checked><label for="t-0-8">Define error code taxonomy + exit code map in <code>internal/output/codes.go</code></label></li>
+      <li class="task"><input type="checkbox" id="t-0-9" checked><label for="t-0-9">Root context with <code>signal.NotifyContext</code> for Ctrl-C handling; optional <code>--timeout</code> deadline</label></li>
+      <li class="task"><input type="checkbox" id="t-0-10" checked><label for="t-0-10">Smoke test: <code>mbx -o json</code> emits a versioned envelope; <code>mbx --no-such-flag</code> emits a structured error</label></li>
     </ul>
   </div>
 </section>
@@ -496,13 +496,11 @@
   function init() {
     const state = load();
     document.querySelectorAll('.task input[type="checkbox"]').forEach(box => {
-      if (state[box.id]) {
-        box.checked = true;
-        box.closest('.task').classList.add('done');
-      }
+      if (box.id in state) box.checked = state[box.id];
+      box.closest('.task').classList.toggle('done', box.checked);
       box.addEventListener('change', () => {
         const s = load();
-        if (box.checked) s[box.id] = true; else delete s[box.id];
+        s[box.id] = box.checked;
         save(s);
         box.closest('.task').classList.toggle('done', box.checked);
         updateProgress();
