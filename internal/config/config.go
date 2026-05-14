@@ -1,5 +1,6 @@
-// Package config loads and validates the mbx config file. The schema mirrors
-// the himalaya-style TOML shape documented in docs/commands.md and ADR-0001.
+// Package config loads and validates the mbx config file. The TOML schema
+// is documented in docs/config.md and decided in ADR-0006 (himalaya-aligned
+// dotted-key shape with mbx-specific extensions).
 //
 // This package exposes typed structs and a Load function. Secret resolution
 // (raw | keyring | cmd, plus write_cmd for OAuth refresh-token rotation)
@@ -17,42 +18,75 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
+// Top-level config. Globals appear as flat keys; per-account configuration
+// lives under [accounts.<name>].
 type Config struct {
-	Accounts map[string]*Account `toml:"accounts"`
+	DownloadsDir string              `toml:"downloads-dir,omitempty"`
+	CacheDir     string              `toml:"cache-dir,omitempty"`
+	Accounts     map[string]*Account `toml:"accounts"`
 }
 
 type Account struct {
-	Type    AccountType `toml:"type"`
-	Email   string      `toml:"email"`
-	Backend Backend     `toml:"backend"`
-	Send    *Send       `toml:"send,omitempty"`
-	Cache   *Cache      `toml:"cache,omitempty"`
+	Email   string   `toml:"email"`
+	Backend Backend  `toml:"backend"`
+	Message *Message `toml:"message,omitempty"`
+	Folder  *Folder  `toml:"folder,omitempty"`
+	Cache   *Cache   `toml:"cache,omitempty"`
 }
 
-type AccountType string
+// Backend models both the account's read backend and the message.send.backend.
+// Type discriminates the two contexts ([imap|gmail] for read; [smtp] for send),
+// and validation enforces context-appropriate field requirements.
+type Backend struct {
+	Type         BackendType `toml:"type"`
+	Host         string      `toml:"host,omitempty"`
+	Port         int         `toml:"port,omitempty"`
+	Encryption   *Encryption `toml:"encryption,omitempty"`
+	Login        string      `toml:"login,omitempty"`
+	Auth         Auth        `toml:"auth"`
+	Extensions   *Extensions `toml:"extensions,omitempty"`
+	ThreadWindow int         `toml:"thread_window,omitempty"`
+}
+
+type BackendType string
 
 const (
-	AccountGmail AccountType = "gmail"
-	AccountIMAP  AccountType = "imap"
+	BackendIMAP  BackendType = "imap"
+	BackendGmail BackendType = "gmail"
+	BackendSMTP  BackendType = "smtp"
 )
 
-type Backend struct {
-	Host         string `toml:"host,omitempty"`
-	Port         int    `toml:"port,omitempty"`
-	TLS          string `toml:"tls,omitempty"`
-	Auth         Auth   `toml:"auth"`
-	ThreadWindow int    `toml:"thread_window,omitempty"`
+type Encryption struct {
+	Type string `toml:"type"`
 }
 
-type Send struct {
-	Host string `toml:"host"`
-	Port int    `toml:"port"`
-	TLS  string `toml:"tls,omitempty"`
-	Auth *Auth  `toml:"auth,omitempty"`
+const (
+	EncryptionTLS      = "tls"
+	EncryptionStartTLS = "start-tls"
+	EncryptionNone     = "none"
+)
+
+type Message struct {
+	Send   *MessageSend   `toml:"send,omitempty"`
+	Delete *MessageDelete `toml:"delete,omitempty"`
+}
+
+type MessageSend struct {
+	Backend  Backend `toml:"backend"`
+	SaveCopy bool    `toml:"save-copy,omitempty"`
+	PreHook  string  `toml:"pre-hook,omitempty"`
+}
+
+type MessageDelete struct {
+	Style string `toml:"style,omitempty"` // "flag" | "folder"
+}
+
+type Folder struct {
+	Aliases map[string]string `toml:"aliases,omitempty"`
 }
 
 type Cache struct {
-	Path     string   `toml:"path"`
+	Path     string   `toml:"path,omitempty"`
 	SyncDays int      `toml:"sync_days,omitempty"`
 	Folders  []string `toml:"folders,omitempty"`
 }
@@ -65,8 +99,7 @@ const (
 )
 
 type Auth struct {
-	Type     AuthType `toml:"type"`
-	Username string   `toml:"username,omitempty"`
+	Type AuthType `toml:"type"`
 
 	Raw     string `toml:"raw,omitempty"`
 	Keyring string `toml:"keyring,omitempty"`
@@ -85,6 +118,14 @@ type Auth struct {
 	RedirectScheme string   `toml:"redirect-scheme,omitempty"`
 	RedirectHost   string   `toml:"redirect-host,omitempty"`
 	RedirectPort   int      `toml:"redirect-port,omitempty"`
+}
+
+type Extensions struct {
+	ID *IDExtension `toml:"id,omitempty"`
+}
+
+type IDExtension struct {
+	SendAfterAuth bool `toml:"send_after_auth,omitempty"`
 }
 
 // Secret is the himalaya-style tagged-sum: exactly one of Raw, Keyring, Cmd
@@ -231,47 +272,97 @@ func (c *Config) validate() error {
 }
 
 func (a *Account) validate() error {
-	switch a.Type {
-	case AccountGmail:
-		if a.Send != nil {
-			return fmt.Errorf("%w: gmail accounts must not have a [send] block (the Gmail API handles send)", ErrUnexpectedSection)
-		}
-		if err := a.Backend.Auth.validateOAuth2(); err != nil {
-			return fmt.Errorf("backend.auth: %w", err)
-		}
-	case AccountIMAP:
-		if a.Backend.Host == "" {
-			return fmt.Errorf("%w: backend.host", ErrMissingField)
-		}
-		if a.Backend.Port == 0 {
-			return fmt.Errorf("%w: backend.port", ErrMissingField)
-		}
-		if err := a.Backend.Auth.validate(); err != nil {
-			return fmt.Errorf("backend.auth: %w", err)
-		}
-		if a.Send != nil {
-			if a.Send.Host == "" {
-				return fmt.Errorf("%w: send.host", ErrMissingField)
-			}
-			if a.Send.Port == 0 {
-				return fmt.Errorf("%w: send.port", ErrMissingField)
-			}
-			if a.Send.Auth != nil {
-				if err := a.Send.Auth.validate(); err != nil {
-					return fmt.Errorf("send.auth: %w", err)
-				}
-			}
-		}
-	case "":
-		return fmt.Errorf("%w: type (gmail | imap)", ErrMissingField)
-	default:
-		return fmt.Errorf("%w: type must be gmail or imap (got %q)", ErrInvalidValue, a.Type)
-	}
 	if a.Email == "" {
 		return fmt.Errorf("%w: email", ErrMissingField)
 	}
-	if a.Cache != nil && a.Cache.Path == "" {
-		return fmt.Errorf("%w: cache.path", ErrMissingField)
+	if err := a.Backend.validateAsRead(); err != nil {
+		return fmt.Errorf("backend: %w", err)
+	}
+
+	switch a.Backend.Type {
+	case BackendIMAP:
+		if a.Message == nil || a.Message.Send == nil {
+			return fmt.Errorf("%w: message.send.backend (required for imap accounts)", ErrMissingField)
+		}
+		if err := a.Message.Send.Backend.validateAsSend(); err != nil {
+			return fmt.Errorf("message.send.backend: %w", err)
+		}
+		if a.Folder == nil || a.Folder.Aliases["inbox"] == "" {
+			return fmt.Errorf("%w: folder.aliases.inbox (required for imap accounts)", ErrMissingField)
+		}
+	case BackendGmail:
+		if a.Message != nil && a.Message.Send != nil {
+			return fmt.Errorf("%w: message.send.backend (forbidden for gmail accounts — the Gmail API handles send)", ErrUnexpectedSection)
+		}
+	}
+
+	return nil
+}
+
+// validateAsRead validates a backend in the read-side context: it must be
+// imap or gmail (smtp is rejected here).
+func (b *Backend) validateAsRead() error {
+	switch b.Type {
+	case BackendIMAP:
+		return b.validateNetworkFields()
+	case BackendGmail:
+		if b.Host != "" || b.Port != 0 || b.Encryption != nil {
+			return fmt.Errorf("%w: gmail backends use the Gmail HTTP API; host, port, and encryption are not configurable", ErrUnexpectedSection)
+		}
+		if b.Login == "" {
+			return fmt.Errorf("%w: login", ErrMissingField)
+		}
+		if err := b.Auth.validate(); err != nil {
+			return fmt.Errorf("auth: %w", err)
+		}
+		if b.Auth.Type != AuthOAuth2 {
+			return fmt.Errorf("%w: gmail backends require auth.type = \"oauth2\"", ErrInvalidValue)
+		}
+		return nil
+	case BackendSMTP:
+		return fmt.Errorf("%w: type %q is only valid under message.send.backend", ErrInvalidValue, b.Type)
+	case "":
+		return fmt.Errorf("%w: type (imap | gmail)", ErrMissingField)
+	default:
+		return fmt.Errorf("%w: type must be imap or gmail (got %q)", ErrInvalidValue, b.Type)
+	}
+}
+
+// validateAsSend validates a backend in the send-side context: currently
+// smtp only.
+func (b *Backend) validateAsSend() error {
+	switch b.Type {
+	case BackendSMTP:
+		return b.validateNetworkFields()
+	case "":
+		return fmt.Errorf("%w: type (smtp)", ErrMissingField)
+	default:
+		return fmt.Errorf("%w: message.send.backend.type must be smtp (got %q)", ErrInvalidValue, b.Type)
+	}
+}
+
+// validateNetworkFields enforces the IMAP / SMTP shared shape: host, port,
+// encryption, login, auth.
+func (b *Backend) validateNetworkFields() error {
+	if b.Host == "" {
+		return fmt.Errorf("%w: host", ErrMissingField)
+	}
+	if b.Port == 0 {
+		return fmt.Errorf("%w: port", ErrMissingField)
+	}
+	if b.Encryption == nil || b.Encryption.Type == "" {
+		return fmt.Errorf("%w: encryption.type", ErrMissingField)
+	}
+	switch b.Encryption.Type {
+	case EncryptionTLS, EncryptionStartTLS, EncryptionNone:
+	default:
+		return fmt.Errorf("%w: encryption.type must be tls, start-tls, or none (got %q)", ErrInvalidValue, b.Encryption.Type)
+	}
+	if b.Login == "" {
+		return fmt.Errorf("%w: login", ErrMissingField)
+	}
+	if err := b.Auth.validate(); err != nil {
+		return fmt.Errorf("auth: %w", err)
 	}
 	return nil
 }
@@ -290,6 +381,10 @@ func (au *Auth) validate() error {
 }
 
 func (au *Auth) validatePassword() error {
+	if au.ClientID != "" || au.AuthURL != "" || au.TokenURL != "" ||
+		au.RefreshToken != nil || au.ClientSecret != nil || au.AccessToken != nil {
+		return fmt.Errorf("%w: oauth2 fields under a password auth block", ErrUnexpectedSection)
+	}
 	switch countSet(au.Raw, au.Keyring, au.Cmd) {
 	case 0:
 		return fmt.Errorf("%w (password auth)", ErrMissingSecret)
@@ -356,6 +451,8 @@ func countSet(ss ...string) int {
 }
 
 func expandPaths(c *Config) {
+	c.DownloadsDir = expandHome(c.DownloadsDir)
+	c.CacheDir = expandHome(c.CacheDir)
 	for _, a := range c.Accounts {
 		if a.Cache != nil {
 			a.Cache.Path = expandHome(a.Cache.Path)

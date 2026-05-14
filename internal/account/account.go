@@ -27,7 +27,7 @@ func List(c *config.Config) []Info {
 	for name, a := range c.Accounts {
 		out = append(out, Info{
 			Name:  name,
-			Type:  string(a.Type),
+			Type:  string(a.Backend.Type),
 			Email: a.Email,
 			Cache: a.Cache != nil,
 		})

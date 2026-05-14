@@ -11,9 +11,9 @@ import (
 func TestList_SortedByName(t *testing.T) {
 	c := &config.Config{
 		Accounts: map[string]*config.Account{
-			"work":           {Type: config.AccountIMAP, Email: "you@work.com"},
-			"gmail-personal": {Type: config.AccountGmail, Email: "you@gmail.com", Cache: &config.Cache{Path: "/tmp/x"}},
-			"side":           {Type: config.AccountIMAP, Email: "you@side.com"},
+			"work":           {Email: "you@work.com", Backend: config.Backend{Type: config.BackendIMAP}},
+			"gmail-personal": {Email: "you@gmail.com", Backend: config.Backend{Type: config.BackendGmail}, Cache: &config.Cache{Path: "/tmp/x"}},
+			"side":           {Email: "you@side.com", Backend: config.Backend{Type: config.BackendIMAP}},
 		},
 	}
 
@@ -29,7 +29,7 @@ func TestList_SortedByName(t *testing.T) {
 }
 
 func TestLookup_Unknown(t *testing.T) {
-	c := &config.Config{Accounts: map[string]*config.Account{"work": {Type: config.AccountIMAP, Email: "x"}}}
+	c := &config.Config{Accounts: map[string]*config.Account{"work": {Email: "x", Backend: config.Backend{Type: config.BackendIMAP}}}}
 	_, err := Lookup(c, "nope")
 	if !errors.Is(err, config.ErrUnknownAccount) {
 		t.Fatalf("want ErrUnknownAccount, got %v", err)
@@ -37,7 +37,7 @@ func TestLookup_Unknown(t *testing.T) {
 }
 
 func TestLookup_Found(t *testing.T) {
-	want := &config.Account{Type: config.AccountIMAP, Email: "x"}
+	want := &config.Account{Email: "x", Backend: config.Backend{Type: config.BackendIMAP}}
 	c := &config.Config{Accounts: map[string]*config.Account{"work": want}}
 	got, err := Lookup(c, "work")
 	if err != nil {

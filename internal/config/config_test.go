@@ -14,20 +14,20 @@ func decodeStr(t *testing.T, s string) (*Config, error) {
 func TestLoad_GmailAccount(t *testing.T) {
 	const cfg = `
 [accounts.gmail-personal]
-type = "gmail"
 email = "you@gmail.com"
 
-[accounts.gmail-personal.backend.auth]
-type = "oauth2"
-client-id = "abc.apps.googleusercontent.com"
-auth-url = "https://accounts.google.com/o/oauth2/v2/auth"
-token-url = "https://www.googleapis.com/oauth2/v3/token"
-method = "xoauth2"
-scopes = ["https://mail.google.com/"]
+backend.type  = "gmail"
+backend.login = "you@gmail.com"
 
-[accounts.gmail-personal.backend.auth.refresh-token]
-cmd = "op read op://Dev/mbx-gmail/refresh"
-write_cmd = "op item edit mbx-gmail refresh[password]=-"
+backend.auth.type      = "oauth2"
+backend.auth.client-id = "abc.apps.googleusercontent.com"
+backend.auth.auth-url  = "https://accounts.google.com/o/oauth2/v2/auth"
+backend.auth.token-url = "https://www.googleapis.com/oauth2/v3/token"
+backend.auth.method    = "xoauth2"
+backend.auth.scopes    = ["https://mail.google.com/"]
+
+backend.auth.refresh-token.cmd       = "op read op://Dev/mbx-gmail/refresh"
+backend.auth.refresh-token.write_cmd = "op item edit mbx-gmail refresh[password]=-"
 `
 	c, err := decodeStr(t, cfg)
 	if err != nil {
@@ -37,11 +37,11 @@ write_cmd = "op item edit mbx-gmail refresh[password]=-"
 	if !ok {
 		t.Fatal("account not found")
 	}
-	if a.Type != AccountGmail {
-		t.Errorf("type = %q, want gmail", a.Type)
+	if a.Backend.Type != BackendGmail {
+		t.Errorf("backend.type = %q, want gmail", a.Backend.Type)
 	}
-	if a.Send != nil {
-		t.Error("gmail account should not have send block")
+	if a.Message != nil && a.Message.Send != nil {
+		t.Error("gmail account should not have message.send.backend")
 	}
 	v, val := a.Backend.Auth.RefreshToken.Variant()
 	if v != SecretCmd {
@@ -57,49 +57,68 @@ write_cmd = "op item edit mbx-gmail refresh[password]=-"
 
 func TestLoad_IMAPAccountWithSendAndCache(t *testing.T) {
 	const cfg = `
+downloads-dir = "~/Downloads"
+
 [accounts.work]
-type = "imap"
 email = "me@company.com"
 
-[accounts.work.backend]
-host = "imap.company.com"
-port = 993
+backend.type            = "imap"
+backend.host            = "imap.company.com"
+backend.port            = 993
+backend.encryption.type = "tls"
+backend.login           = "me@company.com"
+backend.auth.type       = "password"
+backend.auth.cmd        = "op read op://Work/mbx-work/imap-pass"
 
-[accounts.work.backend.auth]
-type = "password"
-cmd = "op read op://Work/mbx-work/imap-pass"
+message.send.backend.type            = "smtp"
+message.send.backend.host            = "smtp.company.com"
+message.send.backend.port            = 587
+message.send.backend.encryption.type = "start-tls"
+message.send.backend.login           = "me@company.com"
+message.send.backend.auth.type       = "password"
+message.send.backend.auth.cmd        = "op read op://Work/mbx-work/smtp-pass"
 
-[accounts.work.send]
-host = "smtp.company.com"
-port = 587
+folder.aliases.inbox  = "INBOX"
+folder.aliases.sent   = "Sent"
+folder.aliases.drafts = "Drafts"
+folder.aliases.trash  = "Trash"
 
-[accounts.work.cache]
-path = "~/.cache/mbx/work.db"
-sync_days = 90
-folders = ["INBOX", "Sent"]
+cache.path      = "~/.cache/mbx/work.db"
+cache.sync_days = 90
+cache.folders   = ["INBOX", "Sent"]
 `
 	c, err := decodeStr(t, cfg)
 	if err != nil {
 		t.Fatalf("decode: %v", err)
 	}
+	if strings.HasPrefix(c.DownloadsDir, "~") {
+		t.Errorf("downloads-dir not expanded: %q", c.DownloadsDir)
+	}
+
 	a := c.Accounts["work"]
+	if a.Backend.Type != BackendIMAP {
+		t.Errorf("backend.type = %q, want imap", a.Backend.Type)
+	}
 	if a.Backend.Host != "imap.company.com" || a.Backend.Port != 993 {
 		t.Errorf("backend host/port = %s/%d", a.Backend.Host, a.Backend.Port)
 	}
-	if a.Send == nil {
-		t.Fatal("imap account should have send block")
+	if a.Backend.Encryption == nil || a.Backend.Encryption.Type != "tls" {
+		t.Errorf("backend.encryption = %+v", a.Backend.Encryption)
 	}
-	if a.Send.Auth != nil {
-		t.Error("send.auth should be nil (inherits from backend.auth)")
+	if a.Message == nil || a.Message.Send == nil {
+		t.Fatal("imap account should have message.send.backend")
+	}
+	if a.Message.Send.Backend.Type != BackendSMTP {
+		t.Errorf("send.backend.type = %q, want smtp", a.Message.Send.Backend.Type)
+	}
+	if a.Folder == nil || a.Folder.Aliases["inbox"] != "INBOX" {
+		t.Errorf("folder.aliases.inbox missing or wrong: %+v", a.Folder)
 	}
 	if a.Cache == nil {
 		t.Fatal("cache should be set")
 	}
-	if !strings.HasSuffix(a.Cache.Path, "/.cache/mbx/work.db") {
+	if !strings.HasSuffix(a.Cache.Path, "/.cache/mbx/work.db") || strings.HasPrefix(a.Cache.Path, "~") {
 		t.Errorf("cache.path = %q, expected ~/ expansion to absolute", a.Cache.Path)
-	}
-	if strings.HasPrefix(a.Cache.Path, "~") {
-		t.Errorf("cache.path = %q, ~ should be expanded", a.Cache.Path)
 	}
 }
 
@@ -115,32 +134,28 @@ func TestLoad_Errors(t *testing.T) {
 			want: ErrMissingField,
 		},
 		{
-			name: "missing type",
+			name: "missing backend.type",
 			cfg: `
 [accounts.x]
 email = "x@y.z"
 
-[accounts.x.backend.auth]
-type = "password"
-cmd = "echo p"
+backend.host = "h"
+backend.port = 1
+backend.encryption.type = "tls"
+backend.login = "x@y.z"
+backend.auth.type = "password"
+backend.auth.cmd  = "echo p"
 `,
 			want: ErrMissingField,
 		},
 		{
-			name: "unknown field rejected",
+			name: "unknown top-level field rejected",
 			cfg: `
+weird = "x"
+
 [accounts.x]
-type = "imap"
 email = "x@y.z"
-something_unknown = "nope"
-
-[accounts.x.backend]
-host = "h"
-port = 1
-
-[accounts.x.backend.auth]
-type = "password"
-cmd = "echo p"
+backend.type = "imap"
 `,
 			want: ErrInvalidTOML,
 		},
@@ -148,39 +163,113 @@ cmd = "echo p"
 			name: "gmail with send block rejected",
 			cfg: `
 [accounts.x]
-type = "gmail"
 email = "x@gmail.com"
 
-[accounts.x.backend.auth]
-type = "oauth2"
-client-id = "id"
-auth-url = "u"
-token-url = "t"
+backend.type  = "gmail"
+backend.login = "x@gmail.com"
 
-[accounts.x.backend.auth.refresh-token]
-cmd = "echo tok"
+backend.auth.type      = "oauth2"
+backend.auth.client-id = "id"
+backend.auth.auth-url  = "u"
+backend.auth.token-url = "t"
+backend.auth.refresh-token.cmd       = "echo tok"
+backend.auth.refresh-token.write_cmd = "echo write"
 
-[accounts.x.send]
-host = "smtp.gmail.com"
-port = 587
+message.send.backend.type  = "smtp"
+message.send.backend.host  = "smtp.gmail.com"
+message.send.backend.port  = 587
+message.send.backend.encryption.type = "start-tls"
+message.send.backend.login = "x@gmail.com"
+message.send.backend.auth.type = "password"
+message.send.backend.auth.cmd  = "echo p"
 `,
 			want: ErrUnexpectedSection,
+		},
+		{
+			name: "gmail with host rejected",
+			cfg: `
+[accounts.x]
+email = "x@gmail.com"
+
+backend.type = "gmail"
+backend.host = "imap.gmail.com"
+backend.login = "x@gmail.com"
+
+backend.auth.type      = "oauth2"
+backend.auth.client-id = "id"
+backend.auth.auth-url  = "u"
+backend.auth.token-url = "t"
+backend.auth.refresh-token.cmd       = "echo tok"
+backend.auth.refresh-token.write_cmd = "echo write"
+`,
+			want: ErrUnexpectedSection,
+		},
+		{
+			name: "imap without message.send.backend",
+			cfg: `
+[accounts.x]
+email = "x@y.z"
+
+backend.type            = "imap"
+backend.host            = "h"
+backend.port            = 1
+backend.encryption.type = "tls"
+backend.login           = "x@y.z"
+backend.auth.type       = "password"
+backend.auth.cmd        = "echo p"
+
+folder.aliases.inbox = "INBOX"
+`,
+			want: ErrMissingField,
+		},
+		{
+			name: "imap without folder.aliases.inbox",
+			cfg: `
+[accounts.x]
+email = "x@y.z"
+
+backend.type            = "imap"
+backend.host            = "h"
+backend.port            = 1
+backend.encryption.type = "tls"
+backend.login           = "x@y.z"
+backend.auth.type       = "password"
+backend.auth.cmd        = "echo p"
+
+message.send.backend.type            = "smtp"
+message.send.backend.host            = "smtp"
+message.send.backend.port            = 587
+message.send.backend.encryption.type = "start-tls"
+message.send.backend.login           = "x@y.z"
+message.send.backend.auth.type       = "password"
+message.send.backend.auth.cmd        = "echo p"
+`,
+			want: ErrMissingField,
 		},
 		{
 			name: "ambiguous password secret",
 			cfg: `
 [accounts.work]
-type = "imap"
 email = "x@y.z"
 
-[accounts.work.backend]
-host = "h"
-port = 1
+backend.type            = "imap"
+backend.host            = "h"
+backend.port            = 1
+backend.encryption.type = "tls"
+backend.login           = "x@y.z"
+backend.auth.type       = "password"
+backend.auth.raw        = "p"
+backend.auth.cmd        = "echo p"
 
-[accounts.work.backend.auth]
-type = "password"
-raw = "p"
-cmd = "echo p"
+message.send.backend.type            = "smtp"
+message.send.backend.host            = "smtp"
+message.send.backend.port            = 587
+message.send.backend.encryption.type = "start-tls"
+message.send.backend.login           = "x@y.z"
+message.send.backend.auth.type       = "password"
+message.send.backend.auth.cmd        = "echo p"
+
+folder.aliases.inbox = "INBOX"
 `,
 			want: ErrAmbiguousSecret,
 		},
@@ -188,18 +277,19 @@ cmd = "echo p"
 			name: "ambiguous nested secret",
 			cfg: `
 [accounts.g]
-type = "gmail"
 email = "g@x.y"
 
-[accounts.g.backend.auth]
-type = "oauth2"
-client-id = "id"
-auth-url = "u"
-token-url = "t"
+backend.type  = "gmail"
+backend.login = "g@x.y"
 
-[accounts.g.backend.auth.refresh-token]
-keyring = "mbx-g"
-cmd = "echo tok"
+backend.auth.type      = "oauth2"
+backend.auth.client-id = "id"
+backend.auth.auth-url  = "u"
+backend.auth.token-url = "t"
+
+backend.auth.refresh-token.keyring   = "mbx-g"
+backend.auth.refresh-token.cmd       = "echo tok"
+backend.auth.refresh-token.write_cmd = "echo w"
 `,
 			want: ErrAmbiguousSecret,
 		},
@@ -207,20 +297,74 @@ cmd = "echo tok"
 			name: "flat password fields under oauth2",
 			cfg: `
 [accounts.g]
-type = "gmail"
 email = "g@x.y"
 
-[accounts.g.backend.auth]
-type = "oauth2"
-client-id = "id"
-auth-url = "u"
-token-url = "t"
-raw = "leftover-from-migration"
+backend.type  = "gmail"
+backend.login = "g@x.y"
 
-[accounts.g.backend.auth.refresh-token]
-cmd = "echo tok"
+backend.auth.type      = "oauth2"
+backend.auth.client-id = "id"
+backend.auth.auth-url  = "u"
+backend.auth.token-url = "t"
+backend.auth.raw       = "leftover-from-migration"
+
+backend.auth.refresh-token.cmd       = "echo tok"
+backend.auth.refresh-token.write_cmd = "echo w"
 `,
 			want: ErrUnexpectedSection,
+		},
+		{
+			name: "oauth2 fields under password",
+			cfg: `
+[accounts.work]
+email = "x@y.z"
+
+backend.type            = "imap"
+backend.host            = "h"
+backend.port            = 1
+backend.encryption.type = "tls"
+backend.login           = "x@y.z"
+backend.auth.type       = "password"
+backend.auth.cmd        = "echo p"
+backend.auth.client-id  = "stray"
+
+message.send.backend.type            = "smtp"
+message.send.backend.host            = "smtp"
+message.send.backend.port            = 587
+message.send.backend.encryption.type = "start-tls"
+message.send.backend.login           = "x@y.z"
+message.send.backend.auth.type       = "password"
+message.send.backend.auth.cmd        = "echo p"
+
+folder.aliases.inbox = "INBOX"
+`,
+			want: ErrUnexpectedSection,
+		},
+		{
+			name: "encryption.type invalid",
+			cfg: `
+[accounts.work]
+email = "x@y.z"
+
+backend.type            = "imap"
+backend.host            = "h"
+backend.port            = 1
+backend.encryption.type = "weird"
+backend.login           = "x@y.z"
+backend.auth.type       = "password"
+backend.auth.cmd        = "echo p"
+
+message.send.backend.type            = "smtp"
+message.send.backend.host            = "smtp"
+message.send.backend.port            = 587
+message.send.backend.encryption.type = "start-tls"
+message.send.backend.login           = "x@y.z"
+message.send.backend.auth.type       = "password"
+message.send.backend.auth.cmd        = "echo p"
+
+folder.aliases.inbox = "INBOX"
+`,
+			want: ErrInvalidValue,
 		},
 	}
 	for _, tc := range cases {
@@ -259,7 +403,7 @@ func TestDefaultConfigDir_ResolutionOrder(t *testing.T) {
 		name string
 		mbx  string
 		xdg  string
-		want string // suffix match against the returned dir
+		want string
 	}{
 		{"mbx env wins over xdg", "/tmp/mbx-explicit", "/tmp/xdg", "/tmp/mbx-explicit"},
 		{"xdg falls back when mbx unset", "", "/tmp/xdg", "/tmp/xdg/mbx"},

@@ -2,53 +2,59 @@ package account
 
 import "strings"
 
-// Templates are emitted by `mbx account add`. Each is structurally a
-// commented worked example from docs/config.md, with REPLACE markers for
-// the values the user must fill in. The `{{name}}` token is substituted at
-// emit time so the rendered block is immediately copy-pasteable into the
-// `account auth` / `account doctor` flow.
+// Templates are emitted by `mbx account add`. Each is a one-block dotted-key
+// scaffold per ADR-0006: section header `[accounts.<name>]` followed by all
+// settings as dotted keys. The `{{name}}` token is substituted at emit time
+// so the rendered block is immediately a starting point for `account auth` /
+// `account doctor`.
 
 const gmailTemplate = `# Fill in the REPLACE values, then run ` + "`mbx account auth {{name}}`" + `.
 [accounts.{{name}}]
-type  = "gmail"
 email = "you@gmail.com"
 
-[accounts.{{name}}.backend.auth]
-type      = "oauth2"
-client-id = "REPLACE.apps.googleusercontent.com"
-auth-url  = "https://accounts.google.com/o/oauth2/v2/auth"
-token-url = "https://www.googleapis.com/oauth2/v3/token"
-# redirect-host = "localhost"
-# redirect-port = 0
+backend.type  = "gmail"
+backend.login = "you@gmail.com"
 
-[accounts.{{name}}.backend.auth.client-secret]
-cmd = "REPLACE  # e.g. op read op://Dev/mbx-{{name}}/client-secret"
+backend.auth.type      = "oauth2"
+backend.auth.client-id = "REPLACE.apps.googleusercontent.com"
+backend.auth.auth-url  = "https://accounts.google.com/o/oauth2/v2/auth"
+backend.auth.token-url = "https://www.googleapis.com/oauth2/v3/token"
+backend.auth.method    = "xoauth2"
+backend.auth.scopes    = ["https://mail.google.com/"]
+# backend.auth.pkce          = true
+# backend.auth.redirect-host = "localhost"
+# backend.auth.redirect-port = 0
 
-[accounts.{{name}}.backend.auth.refresh-token]
-cmd       = "REPLACE  # e.g. op read op://Dev/mbx-{{name}}/refresh-token"
-write_cmd = "REPLACE  # e.g. op item edit mbx-{{name}} refresh-token[password]=-"
+backend.auth.client-secret.cmd = "REPLACE  # e.g. op read op://Dev/mbx-{{name}}/client-secret"
+
+backend.auth.refresh-token.cmd       = "REPLACE  # e.g. op read op://Dev/mbx-{{name}}/refresh-token"
+backend.auth.refresh-token.write_cmd = "REPLACE  # e.g. op item edit mbx-{{name}} refresh-token[password]=-"
 `
 
 const imapTemplate = `# Fill in the REPLACE values, then run ` + "`mbx account doctor {{name}}`" + `.
 [accounts.{{name}}]
-type  = "imap"
 email = "you@example.com"
 
-[accounts.{{name}}.backend]
-host = "imap.example.com"
-port = 993
-tls  = "tls"
+backend.type            = "imap"
+backend.host            = "imap.example.com"
+backend.port            = 993
+backend.encryption.type = "tls"
+backend.login           = "you@example.com"
+backend.auth.type       = "password"
+backend.auth.cmd        = "REPLACE  # e.g. op read op://Dev/mbx-{{name}}/imap-password"
 
-[accounts.{{name}}.backend.auth]
-type     = "password"
-username = "you@example.com"
-cmd      = "REPLACE  # e.g. op read op://Dev/mbx-{{name}}/password"
+message.send.backend.type            = "smtp"
+message.send.backend.host            = "smtp.example.com"
+message.send.backend.port            = 587
+message.send.backend.encryption.type = "start-tls"
+message.send.backend.login           = "you@example.com"
+message.send.backend.auth.type       = "password"
+message.send.backend.auth.cmd        = "REPLACE  # e.g. op read op://Dev/mbx-{{name}}/smtp-password"
 
-[accounts.{{name}}.send]
-host = "smtp.example.com"
-port = 587
-tls  = "starttls"
-# send.auth inherits from backend.auth unless an explicit block is added.
+folder.aliases.inbox  = "INBOX"
+folder.aliases.sent   = "Sent"
+folder.aliases.drafts = "Drafts"
+folder.aliases.trash  = "Trash"
 `
 
 // GmailTemplate returns the gmail account skeleton with {{name}} substituted.

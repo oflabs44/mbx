@@ -7,20 +7,20 @@ mbx is a CLI tool for AI-driven email work. It is invoked per-command from skill
 ### Account & transport
 
 **Account**:
-A named entry in the user's config representing a single mailbox. Has exactly one **Backend**; IMAP accounts also have one **Send** block. Identified by a user-chosen short name (`work`, `gmail-personal`).
+A named entry in the user's config representing a single mailbox. Has exactly one **Backend**; `imap` accounts also have one **Send Backend**. Identified by a user-chosen short name (`work`, `gmail-personal`).
 _Avoid_: profile, mailbox, identity.
 
 **Backend**:
-The read/fetch side of an **Account**. For Gmail accounts the backend uses the Gmail API and also handles send; for IMAP accounts it speaks IMAP and a separate **Send** block speaks SMTP.
+The read/fetch side of an **Account**. Distinguished by `backend.type` (`gmail` or `imap`). The `gmail` backend uses the Gmail HTTP API for both read and send. The `imap` backend speaks IMAP for read and pairs with a **Send Backend** for write.
 _Avoid_: provider config, imap config, source.
 
-**Send**:
-The write/transport side of an IMAP **Account**. Omitted for Gmail accounts (the Gmail API handles send). Auth defaults to inheriting from `backend.auth` unless overridden.
-_Avoid_: smtp config, outgoing.
+**Send Backend**:
+The write/transport side of an `imap` **Account**. Lives under `message.send.backend.*`; currently always SMTP (`message.send.backend.type = "smtp"`). Omitted (and forbidden) for `gmail` backends — the Gmail API handles send. Auth is configured independently; there is no implicit inheritance from `backend.auth`.
+_Avoid_: smtp config, send block, outgoing.
 
 **Provider**:
-Implementation type of a **Backend**: `gmail` (Gmail API + XOAUTH2) or `imap` (IMAP+SMTP, including Proton via the local bridge). Surface as the `provider` field in JSON output.
-_Avoid_: backend type, transport.
+JSON-output field name for the backend kind on per-message results — `"gmail"` or `"imap"`. Surfaced on every **Envelope** and **Message** payload so consumers can branch on backend semantics without re-reading config. The same value lives at `backend.type` in the config file. Account-shaped output (`mbx account list`) uses the field name `type`, not `provider`; only envelope/message output uses `provider`.
+_Avoid_: backend type (in envelope/message output), transport.
 
 ### Messages, envelopes, folders
 
@@ -35,6 +35,10 @@ _Avoid_: email, mail.
 **Folder**:
 A container that an **Envelope** belongs to. An Envelope can belong to one or more Folders. For Gmail, "folder" = any user/system label that is not a flag-mapped system label (`UNREAD`, `STARRED`, etc.). For IMAP, "folder" = mailbox. The `folders` field in JSON output is always an array.
 _Avoid_: mailbox, label, directory.
+
+**Folder Alias**:
+User-supplied mapping from a canonical mbx folder role (`inbox`, `sent`, `drafts`, `trash`, or any custom alias name) to the provider's actual folder name. Configured under `folder.aliases.*`. Used by mbx commands that refer to a canonical role — e.g., `message.send.save-copy` writes to whatever folder `folder.aliases.sent` resolves to. Required for `imap` accounts (`folder.aliases.inbox` at minimum); optional for `gmail` (mbx provides defaults).
+_Avoid_: alias, mapping, folder name.
 
 **Label** (Gmail-only, not in mbx normalized output):
 Gmail's native concept. Some labels become **Folders** in mbx output (e.g. `INBOX`, `Sent`, user labels), some become **Flags** (`UNREAD` → `unread`). Surfaced under the `gmail.labels` provider-extras namespace for callers that need the raw list.
@@ -79,13 +83,14 @@ _Avoid_: write hook, persist callback.
 
 ## Relationships
 
-- An **Account** has exactly one **Backend** and zero-or-one **Send** block.
+- An **Account** has exactly one **Backend** and zero-or-one **Send Backend** (required iff `backend.type = "imap"`).
 - A **Backend** has exactly one auth section; for OAuth, every rotated **Secret** has a paired **write_cmd**.
 - An **Envelope** belongs to exactly one **Account** and one-or-more **Folders**.
 - A **Message** is the full-content view of exactly one **Envelope**; the two share an **mbx ID**.
 - A **Thread** groups one-or-more **Envelopes** from the same **Account**.
 - A **Cache** mirrors zero-or-more **Envelopes** of exactly one **Account**.
 - A **Folder** belongs to exactly one **Account**.
+- A **Folder Alias** is a per-**Account** mapping; the same alias name can resolve to different **Folders** across accounts.
 - A **Flag** applies to exactly one **Envelope**.
 
 ## Example dialogue
