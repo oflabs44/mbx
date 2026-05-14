@@ -1,0 +1,1336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mbx — phase 2 walkthrough</title>
+<style>
+/*
+ * explainer base.css — inlined verbatim.
+ */
+:root {
+  --bg: #fafaf7;
+  --fg: #1a1a1a;
+  --muted: #6b6b6b;
+  --line: #e6e6e0;
+  --card: #ffffff;
+  --accent: #2c5e2e;
+  --accent-dim: #d6e4d7;
+  --warn: #a64500;
+  --warn-dim: #f5e0d0;
+  --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f0f0e;
+    --fg: #e8e6df;
+    --muted: #8a8a85;
+    --line: #2a2a27;
+    --card: #1a1a18;
+    --accent: #7ec47e;
+    --accent-dim: #1e2e1e;
+    --warn: #e88a3f;
+    --warn-dim: #2e2018;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 920px; margin: 0 auto; padding: 48px 24px 96px; }
+header { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 32px; }
+h1 {
+  font-family: var(--mono);
+  font-size: 28px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  letter-spacing: -0.01em;
+}
+.subtitle { color: var(--muted); font-size: 14px; margin: 0; }
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  margin: 0 0 8px;
+}
+.section {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin-bottom: 20px;
+  overflow: hidden;
+  position: relative;
+}
+.section-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.section-id {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+.section-status {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: var(--line);
+  color: var(--muted);
+  margin-left: auto;
+}
+.section-status.done,
+.section-status.in-progress { background: var(--accent-dim); color: var(--accent); }
+.section-body { padding: 20px 24px 24px; }
+.lead, .goal {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0 0 16px;
+  padding-left: 12px;
+  border-left: 2px solid var(--line);
+}
+.meta {
+  display: flex;
+  gap: 24px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.meta strong { color: var(--fg); font-weight: 500; }
+.meta code { font-family: var(--mono); font-size: 11px; }
+.prose p { margin: 0 0 12px; font-size: 15px; }
+.prose p:last-child { margin-bottom: 0; }
+.prose h2 { font-size: 20px; margin: 28px 0 12px; font-weight: 600; }
+.prose h3 { font-size: 16px; margin: 20px 0 8px; font-weight: 600; }
+.prose ul, .prose ol { margin: 0 0 12px; padding-left: 20px; font-size: 15px; }
+.prose li { margin-bottom: 4px; }
+.prose a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-dim); }
+.prose a:hover { border-bottom-color: var(--accent); }
+code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--line);
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+pre {
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent-dim);
+  border-radius: 4px;
+  padding: 14px 16px 14px 18px;
+  overflow-x: auto;
+  margin: 14px 0;
+  line-height: 1.55;
+  position: relative;
+}
+pre code { background: none; padding: 0; font-size: inherit; border-radius: 0; color: inherit; }
+pre[data-lang]::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: var(--muted);
+  background: var(--card);
+  padding: 1px 6px;
+  border-radius: 2px;
+  border: 1px solid var(--line);
+  pointer-events: none;
+}
+.callout {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-dim);
+  padding: 12px 16px;
+  border-radius: 0 4px 4px 0;
+  margin: 16px 0;
+  font-size: 14px;
+}
+.callout.warn { border-left-color: var(--warn); background: var(--warn-dim); }
+.callout-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 4px;
+  display: block;
+}
+.callout.warn .callout-label { color: var(--warn); }
+.task-list { list-style: none; padding: 0; margin: 0; }
+.task {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 14px;
+}
+.task input[type="checkbox"] {
+  flex-shrink: 0;
+  margin-top: 4px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+.task label { cursor: pointer; flex: 1; }
+.task.done label { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 16px 0 0;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.25s ease;
+  width: 0;
+}
+.progress-text { color: var(--muted); min-width: 90px; text-align: right; }
+.btn {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:hover { color: var(--fg); border-color: var(--fg); }
+.btn.danger:hover { color: var(--warn); border-color: var(--warn); }
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+.btn.primary:hover { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--muted);
+}
+footer a { color: var(--accent); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+footer code { font-family: var(--mono); font-size: 12px; }
+.footer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+[data-feedback] { position: relative; }
+.fb-pin {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+[data-feedback]:hover .fb-pin,
+.fb-pin.has-notes,
+.fb-pin:focus { opacity: 1; }
+.fb-pin.has-notes { color: var(--accent); border-color: var(--accent); }
+.fb-pin:hover { color: var(--fg); border-color: var(--fg); }
+.fb-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: 360px;
+  max-height: 70vh;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  z-index: 1000;
+  overflow: hidden;
+}
+.fb-panel.collapsed { width: auto; height: auto; max-height: none; }
+.fb-panel.collapsed .fb-body, .fb-panel.collapsed .fb-footer { display: none; }
+.fb-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.fb-header strong { font-weight: 600; }
+.fb-header .fb-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+.fb-panel.collapsed .fb-header { border-bottom: none; }
+.fb-body {
+  padding: 12px 14px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fb-empty { color: var(--muted); font-style: italic; font-size: 12px; }
+.fb-note {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 8px 10px;
+  background: var(--bg);
+}
+.fb-note-head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+.fb-note-sev {
+  padding: 1px 6px;
+  border-radius: 2px;
+  background: var(--line);
+  color: var(--fg);
+}
+.fb-note-sev.question { background: var(--accent-dim); color: var(--accent); }
+.fb-note-sev.nit { background: var(--line); color: var(--muted); }
+.fb-note-sev.blocker { background: var(--warn-dim); color: var(--warn); }
+.fb-note-anchor { color: var(--muted); }
+.fb-note-anchor a { color: var(--accent); text-decoration: none; }
+.fb-note-del {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 0 2px;
+}
+.fb-note-del:hover { color: var(--warn); }
+.fb-note-text {
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--fg);
+}
+.fb-footer {
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.fb-footer .fb-send { flex: 1; }
+.fb-toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  background: var(--accent);
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+  z-index: 1100;
+}
+.fb-toast.show { opacity: 1; transform: translateY(0); }
+.fb-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+}
+.fb-dialog {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  width: min(440px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.fb-dialog h3 {
+  margin: 0;
+  font-size: 14px;
+  font-family: var(--mono);
+  font-weight: 600;
+}
+.fb-dialog .fb-anchor-info {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+.fb-dialog textarea {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+  font-family: var(--sans);
+  font-size: 14px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+}
+.fb-sev-row { display: flex; gap: 6px; }
+.fb-sev-row label {
+  flex: 1;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.fb-sev-row input[type="radio"] { display: none; }
+.fb-sev-row input[type="radio"]:checked + label {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+.fb-dialog-actions { display: flex; gap: 8px; justify-content: flex-end; }
+</style>
+</head>
+<body data-doc-slug="mbx-phase-2-read-gmail">
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">phase 2 walkthrough</p>
+  <h1>mbx — read path on Gmail, end to end</h1>
+  <p class="subtitle">A to Z of phase 2: what gets built, in what order, why that order, and what each piece looks like in code. Pin a comment on any section.</p>
+</header>
+
+<!-- 1. WHAT PHASE 2 IS -->
+<section class="section" data-feedback="goal" data-feedback-label="Goal &amp; scope">
+  <div class="section-header">
+    <span class="section-id">01</span>
+    <h2 class="section-title">Goal &amp; scope</h2>
+    <span class="section-status">phase 2</span>
+  </div>
+  <div class="section-body prose">
+    <p class="lead">Get one provider working end-to-end before duplicating the work. Gmail first because OAuth is already wired in phase 1 and the SDK is friendlier than raw IMAP.</p>
+
+    <p>By the end of phase 2 the following commands work, against a real Gmail account, with no cache, no fanout, no threading, no mutations:</p>
+    <ul>
+      <li><code>mbx envelope list</code> — paginated envelope listing with filters</li>
+      <li><code>mbx envelope search</code> — same but with a positional keyword arg</li>
+      <li><code>mbx message read</code> — full body fetch + MIME parse</li>
+      <li><code>mbx message export</code> — raw RFC 5322 to stdout</li>
+      <li><code>mbx folder list</code> — labels surfaced as folders</li>
+      <li><code>mbx attachment list</code> &amp; <code>mbx attachment download</code></li>
+    </ul>
+
+    <p>Everything is single-account (<code>-a &lt;name&gt;</code>), live (no cache reads), read-only. Mutations are phase 4. IMAP is phase 3 — by mirroring the same narrow interfaces phase 2 defines.</p>
+
+    <aside class="callout">
+      <span class="callout-label">Why Gmail first</span>
+      Two phase-1 commits already proved the OAuth round-trip (<code>account auth</code>, <code>account doctor</code>). Phase 2 reuses that token machinery as-is — no new auth surface to design. IMAP needs <code>XOAUTH2</code> SASL plus optional <code>STARTTLS</code> and capability probing, which is its own debugging hole. Punt to phase 3.
+    </aside>
+  </div>
+</section>
+
+<!-- 2. BUILD ORDER -->
+<section class="section" data-feedback="build-order" data-feedback-label="Build order">
+  <div class="section-header">
+    <span class="section-id">02</span>
+    <h2 class="section-title">Build order &amp; why</h2>
+  </div>
+  <div class="section-body prose">
+    <p class="lead">Bottom-up by layer, narrow-then-wide by domain. Each step compiles and is testable before the next begins.</p>
+
+    <ol>
+      <li><strong>Provider skeleton</strong> — auth-aware HTTP client wrapping <code>gmail/v1</code>. Nothing domain-aware yet; can <code>users.getProfile</code> as a smoke test.</li>
+      <li><strong>Envelope domain</strong> — <code>EnvelopeLister</code> interface in <code>internal/envelope/</code>, Gmail impl in <code>internal/provider/gmail/</code>, then the <code>envelope list</code> handler.</li>
+      <li><strong>Envelope search</strong> — same interface (search is a flag-shaped variant of list), so this is mostly a handler + small query builder additions.</li>
+      <li><strong>Message domain</strong> — <code>MessageReader</code> interface, Gmail impl, MIME parse + body extraction. Ship <code>message read</code>, then <code>message export</code> (which is just the raw bytes, no parse).</li>
+      <li><strong>Folder domain</strong> — <code>FolderLister</code>, Gmail label-to-folder mapping, <code>folder list</code> handler.</li>
+      <li><strong>Attachment domain</strong> — <code>AttachmentLister</code> + <code>AttachmentDownloader</code>, Gmail impls, the two handlers.</li>
+    </ol>
+
+    <p>The order is load-bearing in two ways:</p>
+    <ul>
+      <li>Each <em>domain interface</em> is born during the first command that needs it. We never define a "future" method speculatively. (See section 04.)</li>
+      <li>Each <em>handler</em> only lands once its domain function exists. The handler can be 25 lines of glue because the domain layer is a ready-made function.</li>
+    </ul>
+
+    <aside class="callout warn">
+      <span class="callout-label">Don't</span>
+      Don't skip ahead and write a kitchen-sink <code>type Provider interface { ... }</code> covering everything phase 2 needs. That's the Java trap <a href="../AGENTS.md">AGENTS.md §6</a> calls out. Many small interfaces, defined by the consumer, satisfied by the provider — see section 04.
+    </aside>
+  </div>
+</section>
+
+<!-- 3. PROVIDER SKELETON -->
+<section class="section" data-feedback="provider-skeleton" data-feedback-label="Provider skeleton">
+  <div class="section-header">
+    <span class="section-id">03</span>
+    <h2 class="section-title">internal/provider/gmail — auth-aware client</h2>
+  </div>
+  <div class="section-body prose">
+    <p class="lead">A thin wrapper around <code>google.golang.org/api/gmail/v1</code> that knows how to refresh OAuth tokens via the existing <code>internal/secret</code> resolver. No domain methods yet — just construction + a smoke probe.</p>
+
+    <pre data-lang="go"><code>// internal/provider/gmail/client.go
+package gmail
+
+import (
+    "context"
+    "fmt"
+    "net/http"
+
+    "golang.org/x/oauth2"
+    "google.golang.org/api/gmail/v1"
+    "google.golang.org/api/option"
+
+    "github.com/oflabs44/mbx/internal/account"
+    "github.com/oflabs44/mbx/internal/secret"
+)
+
+// Client wraps the gmail.Service plus the account it was built for.
+// Account is on the Client so impl methods can stamp mbx IDs without
+// being passed the name at every call site.
+type Client struct {
+    Account string
+    svc     *gmail.Service
+}
+
+func New(ctx context.Context, acc account.Account, sec *secret.Resolver) (*Client, error) {
+    src, err := acc.OAuthTokenSource(ctx, sec)
+    if err != nil {
+        return nil, fmt.Errorf("gmail: token source for %q: %w", acc.Name, err)
+    }
+    httpClient := oauth2.NewClient(ctx, src)
+    svc, err := gmail.NewService(ctx, option.WithHTTPClient(httpClient))
+    if err != nil {
+        return nil, fmt.Errorf("gmail: new service: %w", err)
+    }
+    return &Client{Account: acc.Name, svc: svc}, nil
+}</code></pre>
+
+    <p>Two design notes:</p>
+    <ul>
+      <li><code>OAuthTokenSource</code> wraps the <code>cmd</code> read + <code>write_cmd</code> rotation already built in phase 1 (<code>internal/account/auth/</code>). The <code>oauth2.TokenSource</code> contract is what makes this clean — when a refresh fires, the source's <code>Token()</code> calls back into the rotation path, which writes the new refresh token via <code>write_cmd</code> automatically. <strong>No new persistence wiring in phase 2.</strong></li>
+      <li>The Gmail SDK's <code>UserId</code> is always the literal string <code>"me"</code>. Don't take an email address parameter — confuses the API and confuses the code.</li>
+    </ul>
+
+    <aside class="callout">
+      <span class="callout-label">Smoke test</span>
+      Before writing any domain method, land <code>users.getProfile("me")</code> behind a <code>doctor</code> check or a one-off test. Catches "OAuth scope is wrong" or "the token isn't actually refreshing" before they're tangled with envelope-fetching bugs.
+    </aside>
+  </div>
+</section>
+
+<!-- 4. INTERFACE-WITH-CONSUMER PATTERN -->
+<section class="section" data-feedback="interfaces" data-feedback-label="Interface-with-consumer pattern">
+  <div class="section-header">
+    <span class="section-id">04</span>
+    <h2 class="section-title">Interfaces live with the consumer</h2>
+  </div>
+  <div class="section-body prose">
+    <p class="lead">The shape every domain package follows. Read this once; the rest of phase 2 is repetition.</p>
+
+    <p>Each domain function in <code>internal/&lt;domain&gt;/</code> declares the narrow interface it needs. The provider package satisfies it by writing matching methods — but never imports the interface.</p>
+
+    <pre data-lang="go"><code>// internal/envelope/list.go
+package envelope
+
+import "context"
+
+// Lister is the only capability List requires from a backend.
+// Defined here, next to its sole consumer; not in internal/provider.
+type Lister interface {
+    ListEnvelopes(ctx context.Context, q ListQuery) (page Page, err error)
+}
+
+type ListQuery struct {
+    Folder        string    // empty = backend default (INBOX)
+    Limit         int       // 1..500; default 20
+    Cursor        string    // opaque, from previous Page.NextCursor
+    Unread        *bool
+    Starred       *bool
+    HasAttachment *bool
+    From          string
+    To            string
+    After         time.Time
+    Before        time.Time
+    RawQuery      string    // --query escape hatch
+}
+
+type Page struct {
+    Envelopes  []Envelope
+    NextCursor string
+}
+
+func List(ctx context.Context, b Lister, q ListQuery) (Page, error) {
+    if q.Limit == 0 {
+        q.Limit = 20
+    }
+    return b.ListEnvelopes(ctx, q)
+}</code></pre>
+
+    <pre data-lang="go"><code>// internal/provider/gmail/envelope.go
+package gmail
+
+import (
+    "context"
+
+    "github.com/oflabs44/mbx/internal/envelope"
+    "google.golang.org/api/gmail/v1"
+)
+
+// ListEnvelopes satisfies envelope.Lister. The interface name lives
+// in internal/envelope; this package never imports it for the type
+// declaration — only for the parameter / return types.
+func (c *Client) ListEnvelopes(ctx context.Context, q envelope.ListQuery) (envelope.Page, error) {
+    // ... see section 05
+}</code></pre>
+
+    <p>Why this matters in phase 2 specifically:</p>
+    <ul>
+      <li>When phase 3 adds the IMAP backend, <code>internal/provider/imap/</code> writes its own <code>ListEnvelopes</code> with the same signature. The domain layer doesn't change. <strong>That's the validation that the abstraction is actually right.</strong></li>
+      <li>An IMAP server without <code>THREAD</code> capability simply won't satisfy <code>envelope.ThreadSearcher</code> in phase 5. The branch is <code>if t, ok := backend.(envelope.ThreadSearcher); ok</code> — no flag, no probe surface area in the interface.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 5. ENVELOPE LIST -->
+<section class="section" data-feedback="envelope-list" data-feedback-label="envelope list">
+  <div class="section-header">
+    <span class="section-id">05</span>
+    <h2 class="section-title">mbx envelope list — Gmail impl</h2>
+  </div>
+  <div class="section-body prose">
+    <p class="lead">List = <code>users.messages.list</code> for IDs, then a batched <code>users.messages.get</code> per ID with <code>format=metadata</code> for the envelope fields. Two RPCs, not one per message.</p>
+
+    <pre data-lang="go"><code>func (c *Client) ListEnvelopes(ctx context.Context, q envelope.ListQuery) (envelope.Page, error) {
+    call := c.svc.Users.Messages.List("me").
+        MaxResults(int64(q.Limit)).
+        LabelIds(folderToLabel(q.Folder))
+    if q.Cursor != "" {
+        call = call.PageToken(q.Cursor)
+    }
+    if rq := buildGmailQuery(q); rq != "" {
+        call = call.Q(rq)
+    }
+    resp, err := call.Context(ctx).Do()
+    if err != nil {
+        return envelope.Page{}, mapGmailErr(err)
+    }
+    if len(resp.Messages) == 0 {
+        return envelope.Page{NextCursor: resp.NextPageToken}, nil
+    }
+    metas, err := c.batchGetMetadata(ctx, resp.Messages)
+    if err != nil {
+        return envelope.Page{}, err
+    }
+    out := make([]envelope.Envelope, 0, len(metas))
+    for _, m := range metas {
+        out = append(out, c.toEnvelope(m))
+    }
+    return envelope.Page{Envelopes: out, NextCursor: resp.NextPageToken}, nil
+}</code></pre>
+
+    <p>Three things worth dwelling on:</p>
+    <ul>
+      <li><code>buildGmailQuery</code> assembles <code>q.From</code>, <code>q.Unread</code>, etc. into Gmail's query syntax (<code>from:cfo@x.com is:unread</code>). <code>q.RawQuery</code> is appended verbatim — that's the <code>--query</code> escape hatch from <a href="./commands.md">commands.md</a>.</li>
+      <li>The cursor is an opaque string. Right now it's literally Gmail's <code>nextPageToken</code>. <strong>That's a tiny leak we should think about</strong> — when IMAP arrives, its cursor will be different shape (UID-based). Either commit to "cursor is opaque, provider-defined, never round-tripped between providers" (cleanest), or wrap it in a small base64 envelope tagged with the provider. See section 11.</li>
+      <li><code>folderToLabel</code> is the inverse of section 09's label→folder mapping. Pull it out so both directions live in one file (<code>internal/provider/gmail/folder.go</code>).</li>
+    </ul>
+
+    <aside class="callout">
+      <span class="callout-label">Envelope vs message</span>
+      <code>format=metadata</code> with <code>metadataHeaders=From,To,Subject,Date</code> is the envelope-vs-message split as a wire-format choice. <strong>Never call <code>format=full</code> from the envelope path.</strong> If you do, every list call pulls every body — that's the perf bug AGENTS.md §3 warns about.
+    </aside>
+  </div>
+</section>
+
+<!-- 6. ENVELOPE SEARCH -->
+<section class="section" data-feedback="envelope-search" data-feedback-label="envelope search">
+  <div class="section-header">
+    <span class="section-id">06</span>
+    <h2 class="section-title">mbx envelope search — same lister, different query builder</h2>
+  </div>
+  <div class="section-body prose">
+    <p class="lead">Search is list with a positional keyword. The Gmail backend doesn't need a new method — the keyword folds into the same <code>Q()</code> string.</p>
+
+    <pre data-lang="go"><code>// internal/envelope/search.go
+type SearchQuery struct {
+    ListQuery
+    Keywords string // positional "<words>"
+}
+
+func Search(ctx context.Context, b Lister, q SearchQuery) (Page, error) {
+    lq := q.ListQuery
+    // Keywords get OR'd into RawQuery so backend builders only see one place.
+    if q.Keywords != "" {
+        lq.RawQuery = strings.TrimSpace(lq.RawQuery + " " + q.Keywords)
+    }
+    return List(ctx, b, lq)
+}</code></pre>
+
+    <p>This is the payoff of the narrow-interface design: search is a 10-line domain function, not a new backend method. IMAP's search will be different — it'll need to translate keywords into <code>SEARCH BODY</code> / <code>SEARCH TEXT</code> criteria — but that fits in IMAP's <code>buildImapSearch</code>, not in the envelope domain.</p>
+
+    <aside class="callout">
+      <span class="callout-label">Cross-folder by default</span>
+      <code>envelope list</code> defaults to <code>--folder INBOX</code>. <code>envelope search</code> defaults to no folder filter — search is cross-folder per <a href="./commands.md">commands.md</a>. Make sure <code>buildGmailQuery</code> only adds <code>label:</code> when <code>q.Folder != ""</code>.
+    </aside>
+  </div>
+</section>
+
+<!-- 7. MESSAGE DOMAIN -->
+<section class="section" data-feedback="message-read" data-feedback-label="message read">
+  <div class="section-header">
+    <span class="section-id">07</span>
+    <h2 class="section-title">internal/message — read &amp; body extraction</h2>
+  </div>
+  <div class="section-body prose">
+    <p class="lead">Same interface-with-consumer pattern. <code>MessageReader</code> in <code>internal/message/</code>, Gmail impl calls <code>users.messages.get</code> with <code>format=full</code>, then mbx parses the MIME tree itself.</p>
+
+    <pre data-lang="go"><code>// internal/message/read.go
+type Reader interface {
+    ReadMessage(ctx context.Context, id mbxid.ID) (RawMessage, error)
+}
+
+// RawMessage is the unparsed RFC 5322 bytes plus the immutable
+// fields we already have from the protocol (ID, server-side flags).
+// Parsing happens in internal/message/parse.go, not in the backend.
+type RawMessage struct {
+    ID          mbxid.ID
+    ThreadID    mbxid.ID
+    Flags       []string
+    Folders     []string
+    Provider    string
+    Raw         []byte // RFC 5322
+}
+
+type ReadOptions struct {
+    PreferHTML  bool
+    IncludeRaw  bool
+    ExtraHeader []string
+    OmitHeaders bool
+    MarkSeen    bool // true unless --preview
+}
+
+func Read(ctx context.Context, r Reader, id mbxid.ID, opt ReadOptions) (Message, error) {
+    raw, err := r.ReadMessage(ctx, id)
+    if err != nil {
+        return Message{}, err
+    }
+    return parse(raw, opt)
+}</code></pre>
+
+    <p>Why parse in the domain layer and not in the backend?</p>
+    <ul>
+      <li>The MIME tree is the same shape regardless of provider. Phase 3's IMAP backend will return <code>RawMessage.Raw</code> from <code>FETCH BODY[]</code>; the parse step doesn't change.</li>
+      <li>Body-source selection (plain vs html) is a policy decision, not a protocol detail. Keeping it in <code>internal/message/parse.go</code> means there's one place to fix if the policy changes.</li>
+    </ul>
+
+    <h3>Body-source policy</h3>
+    <p>Plain-first: walk the MIME tree, prefer the first <code>text/plain</code> alternative, fall back to <code>text/html</code> stripped to text via a small html-to-text routine. Mark the chosen path in <code>body_source</code> on the JSON output.</p>
+
+    <pre data-lang="go"><code>// internal/message/body.go
+const (
+    BodyPlain    = "text/plain"
+    BodyHTMLAsTx = "text/html-as-text" // html stripped because no plain part existed
+    BodyHTML     = "text/html"         // user passed --html
+    BodyRaw      = "raw"               // user passed --raw
+)
+
+func chooseBody(parts []mimePart, opt ReadOptions) (text, source string) {
+    if opt.IncludeRaw {
+        return "", BodyRaw
+    }
+    if opt.PreferHTML {
+        if h := pickType(parts, "text/html"); h != nil {
+            return string(h.body), BodyHTML
+        }
+    }
+    if p := pickType(parts, "text/plain"); p != nil {
+        return string(p.body), BodyPlain
+    }
+    if h := pickType(parts, "text/html"); h != nil {
+        return htmlToText(h.body), BodyHTMLAsTx
+    }
+    return "", "" // empty body — valid for some calendar invites etc
+}</code></pre>
+
+    <aside class="callout warn">
+      <span class="callout-label">Decide before writing</span>
+      <strong>Open question:</strong> what does <code>htmlToText</code> use? Options: write ~80 lines using <code>golang.org/x/net/html</code> tokeniser (preferred — "a little copying"), or pull <code>jaytaylor/html2text</code> (~5KLOC dep, but battle-tested). I lean toward writing it ourselves; the corpus we hit is mostly marketing emails where simple block-element handling is enough. Pin a comment if you disagree — section 11.
+    </aside>
+  </div>
+</section>
+
+<!-- 8. MESSAGE EXPORT -->
+<section class="section" data-feedback="message-export" data-feedback-label="message export">
+  <div class="section-header">
+    <span class="section-id">08</span>
+    <h2 class="section-title">mbx message export — raw bytes, no parse</h2>
+  </div>
+  <div class="section-body prose">
+    <p class="lead">Trivial once <code>RawMessage</code> exists. The handler writes <code>raw.Raw</code> to stdout and exits. No JSON envelope wrapping for this command — it's binary-clean by design (pipeable into <code>msmtp</code>, <code>mu</code>, etc.).</p>
+
+    <pre data-lang="go"><code>// cmd/mbx/message_export.go
+func runMessageExport(cmd *cobra.Command, args []string) error {
+    id, err := mbxid.Parse(args[0])
+    if err != nil {
+        return err
+    }
+    raw, err := message.RawByID(cmd.Context(), backendFor(id), id)
+    if err != nil {
+        return err
+    }
+    _, err = cmd.OutOrStdout().Write(raw.Raw)
+    return err
+}</code></pre>
+
+    <aside class="callout warn">
+      <span class="callout-label">Output contract carve-out</span>
+      <code>message export</code> deliberately violates <a href="./adr/0004-json-output-contract.md">ADR-0004</a> — it emits raw bytes, not a JSON envelope. That's a documented exception in <code>commands.md</code>, but worth surfacing in <code>internal/output/</code> as an explicit "raw mode" so a future reviewer doesn't assume it's an oversight.
+    </aside>
+  </div>
+</section>
+
+<!-- 9. FOLDER -->
+<section class="section" data-feedback="folder-list" data-feedback-label="folder list">
+  <div class="section-header">
+    <span class="section-id">09</span>
+    <h2 class="section-title">internal/folder — labels surfaced as folders</h2>
+  </div>
+  <div class="section-body prose">
+    <p class="lead">Gmail labels split two ways in mbx output: some become Folders (multi-valued container), some become Flags (boolean status). The split lives in one place.</p>
+
+    <pre data-lang="go"><code>// internal/provider/gmail/folder.go
+// Labels that map to Flag, not Folder. mbx never surfaces these as folders.
+var labelsAsFlag = map[string]string{
+    "UNREAD":   "unread",   // mbx Flag vocabulary
+    "STARRED":  "flagged",
+    "IMPORTANT":"",         // dropped — not in mbx Flag vocab and not a folder
+}
+
+// Labels Gmail uses internally that aren't user-meaningful as folders.
+var labelsHidden = map[string]bool{
+    "CHAT": true, "CATEGORY_PROMOTIONS": true, "CATEGORY_UPDATES": true,
+    "CATEGORY_SOCIAL": true, "CATEGORY_FORUMS": true,
+}
+
+func (c *Client) ListFolders(ctx context.Context) ([]folder.Folder, error) {
+    resp, err := c.svc.Users.Labels.List("me").Context(ctx).Do()
+    if err != nil { return nil, mapGmailErr(err) }
+    out := make([]folder.Folder, 0, len(resp.Labels))
+    for _, l := range resp.Labels {
+        if _, isFlag := labelsAsFlag[l.Id]; isFlag { continue }
+        if labelsHidden[l.Id] { continue }
+        out = append(out, folder.Folder{
+            Name:   labelDisplayName(l),  // INBOX → "INBOX", "Label_42" → user-set name
+            Count:  l.MessagesTotal,
+            Unread: l.MessagesUnread,
+        })
+    }
+    return out, nil
+}</code></pre>
+
+    <p>The same map drives the envelope-side <code>flagsFromLabels</code> + <code>foldersFromLabels</code> functions. <strong>One source of truth for the split — don't re-list flag labels in <code>envelope.go</code>.</strong></p>
+
+    <aside class="callout">
+      <span class="callout-label">Categories</span>
+      Gmail's <code>CATEGORY_*</code> tabs are dropped above. Some users will want them as folders. Decision now: drop them by default; if anyone asks, surface them under <code>folder.aliases.*</code> or a config flag. Keeping the default surface clean matters more than completeness.
+    </aside>
+  </div>
+</section>
+
+<!-- 10. ATTACHMENTS -->
+<section class="section" data-feedback="attachments" data-feedback-label="Attachments">
+  <div class="section-header">
+    <span class="section-id">10</span>
+    <h2 class="section-title">Attachments — list + download</h2>
+  </div>
+  <div class="section-body prose">
+    <p class="lead">Two interfaces, one for cheap metadata, one for the bytes. Same separation as envelope-vs-message: don't pay download cost on a list call.</p>
+
+    <pre data-lang="go"><code>// internal/attachment/attachment.go
+type Lister interface {
+    ListAttachments(ctx context.Context, msgID mbxid.ID) ([]Meta, error)
+}
+type Downloader interface {
+    DownloadAttachment(ctx context.Context, attID mbxid.ID) (io.ReadCloser, error)
+}
+
+type Meta struct {
+    ID       mbxid.ID // gmail:work:&lt;msg&gt;:att-N — encoded by mbxid pkg
+    Filename string
+    Size     int64
+    MIME     string
+}</code></pre>
+
+    <p>The Gmail backend implements <code>ListAttachments</code> by calling <code>users.messages.get</code> with <code>format=full</code> and walking the MIME parts that have a non-inline disposition. <strong>Two phase-2 codepaths now call <code>format=full</code> on the same message:</strong> <code>message read</code> and <code>attachment list</code>. That's fine — the cache (phase 6) will collapse it; phase 2 keeps both straightforward and re-fetches.</p>
+
+    <p>Download maps to <code>users.messages.attachments.get</code>. The mbx attachment ID encodes <code>gmail:&lt;account&gt;:&lt;msg&gt;:att-N</code>; the <code>att-N</code> suffix is the index into the message's parts array (deterministic given the same MIME tree). Decoding splits and re-fetches just that one part.</p>
+
+    <aside class="callout">
+      <span class="callout-label">Output destination</span>
+      <code>attachment download</code>'s <code>-o</code> defaults to the config's <code>attachment_dir</code>. If the config doesn't set one, default to <code>$XDG_DOWNLOAD_DIR</code> if set, else CWD. Don't introduce a custom <code>MBX_ATTACHMENT_DIR</code> env var alone — layer it with XDG and the flag.
+    </aside>
+  </div>
+</section>
+
+<!-- 11. OPEN DECISIONS -->
+<section class="section" data-feedback="open-decisions" data-feedback-label="Open decisions">
+  <div class="section-header">
+    <span class="section-id">11</span>
+    <h2 class="section-title">Open decisions before code lands</h2>
+    <span class="section-status">decide first</span>
+  </div>
+  <div class="section-body prose">
+    <p class="lead">Five small calls that are cheaper to make now than to revisit mid-phase.</p>
+
+    <h3>D1. Cursor opacity</h3>
+    <p>Two options. <strong>Recommended: opaque provider-string</strong>, no envelope wrapping. The cursor is documented as not portable across providers (it's not portable across <em>folders</em> either, in IMAP's case). Wrapping it in a base64 tag is over-engineering until we have a use case. Trade-off: a future tool that stores cursors will see Gmail's raw tokens in their JSON.</p>
+
+    <h3>D2. html-to-text implementation</h3>
+    <p><strong>Recommended: write it in ~80 lines using <code>golang.org/x/net/html</code> tokeniser</strong>. Block elements emit <code>\n</code>, <code>&lt;br&gt;</code> emits <code>\n</code>, drop <code>script</code>/<code>style</code>, collapse whitespace. We can always pull a library later if specific email patterns break it. Trade-off: marketing-email rendering won't be pixel-perfect; that's fine for an agent CLI.</p>
+
+    <h3>D3. Body-encoding edge cases</h3>
+    <p>Quoted-printable and base64 transfer encodings are handled by <code>net/mail</code>'s reader for free. <strong>Charset conversion</strong> (Windows-1252, ISO-8859-1) is not — needs <code>golang.org/x/text/encoding/charmap</code>. Decision: handle UTF-8 + Latin-1 + Windows-1252 explicitly in phase 2; everything else falls back to "decode as UTF-8 with replacement" and warns on stderr at <code>--verbose</code>.</p>
+
+    <h3>D4. <code>mbx folder list</code> count semantics</h3>
+    <p>Gmail's <code>messagesTotal</code> includes archived; <code>threadsTotal</code> reflects what users see. <strong>Recommended: surface both</strong> — top-level <code>count</code> = <code>messagesTotal</code> (matches IMAP's count semantics), <code>gmail.threads_total</code> in the provider-extras subobject. Keeps the cross-provider field stable.</p>
+
+    <h3>D5. Rate-limit / 429 handling</h3>
+    <p>Gmail's API quota is generous but real. <strong>Recommended: don't add a retry layer in phase 2</strong>. Map 429 to <code>provider.rate_limited</code> (exit 20), let the agent script decide whether to back off. Adding <code>cenkalti/backoff</code> is an easy phase-8 polish if it actually bites.</p>
+  </div>
+</section>
+
+<!-- 12. ERROR MAPPING -->
+<section class="section" data-feedback="error-mapping" data-feedback-label="Error mapping">
+  <div class="section-header">
+    <span class="section-id">12</span>
+    <h2 class="section-title">Error mapping — Gmail SDK to mbx codes</h2>
+  </div>
+  <div class="section-body prose">
+    <p class="lead">One file in <code>internal/provider/gmail/</code> translates the Gmail SDK's <code>googleapi.Error</code> into the mbx error codes from <a href="./adr/0004-json-output-contract.md">ADR-0004</a>. The domain layer never sees a Gmail-typed error.</p>
+
+    <pre data-lang="go"><code>// internal/provider/gmail/errors.go
+func mapGmailErr(err error) error {
+    var gerr *googleapi.Error
+    if !errors.As(err, &gerr) {
+        return fmt.Errorf("gmail: %w", err)
+    }
+    switch {
+    case gerr.Code == 401:
+        return output.Errf("auth.refresh_failed", "Gmail rejected the OAuth token")
+    case gerr.Code == 403 && strings.Contains(gerr.Message, "quota"):
+        return output.Errf("provider.rate_limited", "Gmail quota exceeded")
+    case gerr.Code == 404:
+        return output.Errf("provider.not_found", "message or label not found")
+    case gerr.Code == 429:
+        return output.Errf("provider.rate_limited", "Gmail rate limit hit")
+    case gerr.Code &gt;= 500:
+        return output.Errf("provider.network_timeout", "Gmail upstream error: %s", gerr.Message)
+    }
+    return fmt.Errorf("gmail: %w", err)
+}</code></pre>
+
+    <p>The 401 path is interesting: phase 1's token source already auto-refreshes on each call. If the SDK still bubbles a 401 here, the refresh itself failed — that's why <code>auth.refresh_failed</code> is the right code, not <code>auth.invalid_credentials</code>.</p>
+  </div>
+</section>
+
+<!-- 13. DEFINITION OF DONE -->
+<section class="section" data-feedback="dod" data-feedback-label="Definition of done">
+  <div class="section-header">
+    <span class="section-id">13</span>
+    <h2 class="section-title">Definition of done</h2>
+  </div>
+  <div class="section-body prose">
+    <p class="lead">Phase 2 ships when all of the following are true. Use this as your acceptance check before flipping the box on the plan.</p>
+
+    <ul class="task-list">
+      <li class="task"><input type="checkbox" id="d1"><label for="d1">All thirteen plan items 2.1–2.13 land with passing tests + <code>make fmt &amp;&amp; make lint &amp;&amp; make test</code> green</label></li>
+      <li class="task"><input type="checkbox" id="d2"><label for="d2">A real Gmail account exercises every command end-to-end (manual run, results pasted into the PR description)</label></li>
+      <li class="task"><input type="checkbox" id="d3"><label for="d3">The <code>EnvelopeLister</code>, <code>MessageReader</code>, <code>FolderLister</code>, <code>AttachmentLister</code>, <code>AttachmentDownloader</code> interfaces are defined in <code>internal/&lt;domain&gt;/</code>, not in <code>internal/provider/</code></label></li>
+      <li class="task"><input type="checkbox" id="d4"><label for="d4">No call to <code>format=full</code> in any envelope codepath</label></li>
+      <li class="task"><input type="checkbox" id="d5"><label for="d5">Every error returned from <code>internal/provider/gmail/</code> goes through <code>mapGmailErr</code> — no raw <code>googleapi.Error</code> escapes the package</label></li>
+      <li class="task"><input type="checkbox" id="d6"><label for="d6"><code>body_source</code> is present on every <code>message read</code> JSON output and reflects the actual choice (<code>text/plain</code>, <code>text/html-as-text</code>, <code>text/html</code>, <code>raw</code>)</label></li>
+      <li class="task"><input type="checkbox" id="d7"><label for="d7">Cursor round-trip works: <code>--limit 5</code> twice with the second using <code>meta.next_cursor</code> returns the next 5 envelopes, no overlap</label></li>
+      <li class="task"><input type="checkbox" id="d8"><label for="d8">Open decisions D1–D5 in section 11 each have a written answer (in this doc, an ADR, or a code comment)</label></li>
+      <li class="task"><input type="checkbox" id="d9"><label for="d9"><code>pr-review-toolkit:code-reviewer</code>, <code>code-simplifier</code>, <code>silent-failure-hunter</code> have been run on the diff and surviving findings addressed</label></li>
+    </ul>
+
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="dod-bar"></div></div>
+      <span class="progress-text" id="dod-count">0 / 9</span>
+    </div>
+  </div>
+</section>
+
+<!-- 14. WHAT THIS UNBLOCKS -->
+<section class="section" data-feedback="what-next" data-feedback-label="What this unblocks">
+  <div class="section-header">
+    <span class="section-id">14</span>
+    <h2 class="section-title">What phase 2 unblocks</h2>
+  </div>
+  <div class="section-body prose">
+    <p class="lead">Mostly: phase 3 becomes pattern replication, not new design.</p>
+    <ul>
+      <li><strong>Phase 3 (IMAP)</strong> — every domain interface phase 2 defines is the contract phase 3's <code>internal/provider/imap/</code> implements. The shape of <code>EnvelopeLister</code>, <code>MessageReader</code>, etc., is now load-bearing. If something feels wrong about an interface in phase 2, fix it now — phase 3 will calcify it.</li>
+      <li><strong>Phase 4 (write path)</strong> — adds new interfaces (<code>EnvelopeFlagger</code>, <code>MessageMover</code>, ...) but follows the same shape. Phase 2's pattern is the phase-4 template.</li>
+      <li><strong>Phase 5 (threading)</strong> — <code>envelope.ThreadSearcher</code> is an opt-in interface alongside <code>EnvelopeLister</code>. The capability-via-type-assertion idiom we set up in phase 2 (sec. 04) is what makes threading a clean optional feature.</li>
+      <li><strong>Phase 6 (cache)</strong> — the <code>Envelope</code> and <code>Message</code> structs phase 2 defines become the schema for the SQLite cache. Get the field set right now.</li>
+    </ul>
+
+    <aside class="callout">
+      <span class="callout-label">The one thing to over-invest in</span>
+      The <code>Envelope</code> and <code>Message</code> struct shapes. They're the JSON contract per <a href="./adr/0004-json-output-contract.md">ADR-0004</a>, the cache schema per <a href="./adr/0003-cache-as-derived-state.md">ADR-0003</a>, and the cross-provider lingua franca. Everything else in phase 2 is reasonably easy to refactor; these shapes aren't.
+    </aside>
+  </div>
+</section>
+
+<footer>
+  <p><strong>Canonical docs</strong> — keep aligned as phase 2 lands.</p>
+  <div class="footer-grid">
+    <div><a href="./plan.html">plan.html</a> — phase checklist</div>
+    <div><a href="../CONTEXT.md">CONTEXT.md</a> — domain language</div>
+    <div><a href="./commands.md">commands.md</a> — command surface</div>
+    <div><a href="./config.md">config.md</a> — config schema</div>
+    <div><a href="../AGENTS.md">AGENTS.md</a> — project rules</div>
+    <div><a href="./adr/">adr/</a> — architecture decisions</div>
+  </div>
+  <p style="margin-top: 24px; font-size: 12px;">Pin questions/nits/blockers per section, then "send to claude" copies them as a prompt. Comments persist in <code>localStorage</code> under <code>explainer-feedback:mbx-phase-2-read-gmail</code>.</p>
+</footer>
+
+</div>
+
+<script>
+// Definition-of-done progress (independent of feedback panel).
+(function () {
+  const boxes = document.querySelectorAll('#dod-bar')[0]
+    ? document.querySelectorAll('.task input[type="checkbox"]')
+    : [];
+  const KEY = 'mbx-phase-2-dod';
+  function load() { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; } }
+  function save(s) { localStorage.setItem(KEY, JSON.stringify(s)); }
+  function update() {
+    const total = boxes.length;
+    const done = [...boxes].filter(b => b.checked).length;
+    const bar = document.getElementById('dod-bar');
+    const count = document.getElementById('dod-count');
+    if (bar) bar.style.width = total ? (done/total*100)+'%' : '0%';
+    if (count) count.textContent = `${done} / ${total}`;
+  }
+  const state = load();
+  boxes.forEach(b => {
+    if (b.id in state) b.checked = state[b.id];
+    b.closest('.task').classList.toggle('done', b.checked);
+    b.addEventListener('change', () => {
+      const s = load(); s[b.id] = b.checked; save(s);
+      b.closest('.task').classList.toggle('done', b.checked);
+      update();
+    });
+  });
+  update();
+})();
+</script>
+
+<script>
+/*
+ * explainer feedback.js — inlined verbatim.
+ */
+(function () {
+  const slug = document.body.dataset.docSlug || location.pathname.split('/').pop() || 'doc';
+  const STORAGE_KEY = `explainer-feedback:${slug}`;
+  const DOC_TITLE = document.title || slug;
+
+  function loadNotes() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    catch { return []; }
+  }
+  function saveNotes(notes) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+  }
+
+  function el(tag, props, children) {
+    const node = document.createElement(tag);
+    if (props) {
+      for (const [k, v] of Object.entries(props)) {
+        if (k === 'class') node.className = v;
+        else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
+        else if (k === 'dataset') Object.assign(node.dataset, v);
+        else if (v !== null && v !== undefined) node.setAttribute(k, v);
+      }
+    }
+    if (children != null) {
+      for (const c of [].concat(children)) {
+        if (c == null) continue;
+        node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+      }
+    }
+    return node;
+  }
+
+  function clear(node) {
+    while (node.firstChild) node.removeChild(node.firstChild);
+  }
+
+  const panel = el('aside', { class: 'fb-panel collapsed', role: 'complementary', 'aria-label': 'Feedback panel' });
+  const countEl = el('span', { class: 'fb-count', id: 'fb-count' }, '0');
+  const header = el('div', { class: 'fb-header', onclick: togglePanel }, [
+    el('strong', null, 'feedback'),
+    countEl,
+  ]);
+  const body = el('div', { class: 'fb-body', id: 'fb-body' });
+  const sendBtn = el('button', { class: 'btn primary fb-send', onclick: sendFeedback }, 'send to claude');
+  const clearBtn = el('button', { class: 'btn danger', onclick: clearAll }, 'clear');
+  const footer = el('div', { class: 'fb-footer' }, [sendBtn, clearBtn]);
+  panel.append(header, body, footer);
+
+  function togglePanel() {
+    panel.classList.toggle('collapsed');
+  }
+
+  function renderBody() {
+    const notes = loadNotes();
+    clear(body);
+    countEl.textContent = String(notes.length);
+
+    document.querySelectorAll('.fb-pin').forEach(pin => pin.classList.remove('has-notes'));
+    const pinned = new Set(notes.map(n => n.anchor));
+    pinned.forEach(id => {
+      if (id === '__general__') return;
+      const pin = document.querySelector(`[data-feedback="${CSS.escape(id)}"] .fb-pin`);
+      if (pin) pin.classList.add('has-notes');
+    });
+
+    if (notes.length === 0) {
+      body.appendChild(el('div', { class: 'fb-empty' }, 'No comments yet. Hover any section and click + to add one.'));
+      return;
+    }
+
+    notes.forEach((note, idx) => {
+      const anchorEl = note.anchor === '__general__'
+        ? document.createTextNode('(general)')
+        : el('a', {
+            href: `#${note.anchor}`,
+            onclick: () => panel.classList.add('collapsed'),
+          }, note.label || note.anchor);
+      const head = el('div', { class: 'fb-note-head' }, [
+        el('span', { class: `fb-note-sev ${note.severity}` }, note.severity),
+        el('span', { class: 'fb-note-anchor' }, [anchorEl]),
+        el('button', { class: 'fb-note-del', title: 'Delete', onclick: () => deleteNote(idx) }, '×'),
+      ]);
+      const text = el('div', { class: 'fb-note-text' }, note.text);
+      body.appendChild(el('div', { class: 'fb-note' }, [head, text]));
+    });
+  }
+
+  function deleteNote(idx) {
+    const notes = loadNotes();
+    notes.splice(idx, 1);
+    saveNotes(notes);
+    renderBody();
+  }
+
+  function clearAll() {
+    if (!confirm('Clear all feedback for this document?')) return;
+    saveNotes([]);
+    renderBody();
+  }
+
+  function openDialog(anchor, label) {
+    const ta = el('textarea', { placeholder: 'What do you want to say?', id: 'fb-text' });
+    const sev = el('div', { class: 'fb-sev-row' }, [
+      el('input', { type: 'radio', name: 'fb-sev', id: 'sev-q', value: 'question', checked: 'checked' }),
+      el('label', { for: 'sev-q' }, 'question'),
+      el('input', { type: 'radio', name: 'fb-sev', id: 'sev-n', value: 'nit' }),
+      el('label', { for: 'sev-n' }, 'nit'),
+      el('input', { type: 'radio', name: 'fb-sev', id: 'sev-b', value: 'blocker' }),
+      el('label', { for: 'sev-b' }, 'blocker'),
+    ]);
+    const cancel = el('button', { class: 'btn', onclick: close }, 'cancel');
+    const save = el('button', { class: 'btn primary', onclick: submit }, 'save');
+    const children = [
+      el('h3', null, anchor === '__general__' ? 'add general comment' : 'add comment'),
+    ];
+    if (anchor !== '__general__') {
+      children.push(el('div', { class: 'fb-anchor-info' }, `anchored to: ${label || anchor}`));
+    }
+    children.push(sev, ta, el('div', { class: 'fb-dialog-actions' }, [cancel, save]));
+    const dialog = el('div', { class: 'fb-dialog' }, children);
+    const backdrop = el('div', {
+      class: 'fb-dialog-backdrop',
+      onclick: e => { if (e.target === backdrop) close(); },
+    }, [dialog]);
+
+    function close() { backdrop.remove(); document.removeEventListener('keydown', onKey); }
+    function onKey(e) {
+      if (e.key === 'Escape') close();
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit();
+    }
+    function submit() {
+      const text = ta.value.trim();
+      if (!text) { close(); return; }
+      const severity = dialog.querySelector('input[name="fb-sev"]:checked').value;
+      const notes = loadNotes();
+      notes.push({ anchor, label, severity, text, ts: Date.now() });
+      saveNotes(notes);
+      renderBody();
+      if (panel.classList.contains('collapsed')) panel.classList.remove('collapsed');
+      close();
+    }
+
+    document.body.appendChild(backdrop);
+    document.addEventListener('keydown', onKey);
+    setTimeout(() => ta.focus(), 0);
+  }
+
+  function installPins() {
+    document.querySelectorAll('[data-feedback]').forEach(section => {
+      if (section.querySelector(':scope > .fb-pin')) return;
+      const id = section.dataset.feedback;
+      const label = section.dataset.feedbackLabel || pickLabel(section) || id;
+      if (!section.id) section.id = id;
+      const pin = el('button', {
+        class: 'fb-pin',
+        title: 'Comment on this section',
+        'aria-label': `Comment on ${label}`,
+        onclick: e => { e.stopPropagation(); openDialog(id, label); },
+      }, '+');
+      section.appendChild(pin);
+    });
+  }
+
+  function pickLabel(section) {
+    const t = section.querySelector('.section-title, h2, h3');
+    return t ? t.textContent.trim() : null;
+  }
+
+  function buildPrompt(notes) {
+    if (notes.length === 0) return '';
+    const lines = [];
+    lines.push(`Feedback on ${DOC_TITLE} (${slug}):`);
+    lines.push('');
+    for (const n of notes) {
+      const anchor = n.anchor === '__general__'
+        ? '[general]'
+        : `[section: ${n.anchor}${n.label && n.label !== n.anchor ? ` — ${n.label}` : ''}]`;
+      lines.push(`${anchor} ${n.severity}: ${n.text}`);
+    }
+    lines.push('');
+    lines.push('Please address each item. For questions, answer them. For nits, decide whether to apply them. For blockers, treat them as required changes before this artifact is finalized.');
+    return lines.join('\n');
+  }
+
+  async function sendFeedback() {
+    const notes = loadNotes();
+    if (notes.length === 0) { toast('Nothing to send'); return; }
+    const prompt = buildPrompt(notes);
+    try {
+      await navigator.clipboard.writeText(prompt);
+      toast(`Copied ${notes.length} comment${notes.length === 1 ? '' : 's'} — paste into Claude Code`);
+    } catch {
+      const ta = el('textarea', { style: 'position:fixed;top:-9999px' });
+      ta.value = prompt;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); toast('Copied — paste into Claude Code'); }
+      catch { toast('Copy failed — open the panel and copy manually'); }
+      ta.remove();
+    }
+  }
+
+  function toast(msg) {
+    const t = el('div', { class: 'fb-toast' }, msg);
+    document.body.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('show'));
+    setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2200);
+  }
+
+  function installGeneralTrigger() {
+    const btn = el('button', {
+      class: 'btn',
+      style: 'margin-left:auto;font-size:11px;',
+      onclick: e => { e.stopPropagation(); openDialog('__general__', null); },
+    }, '+ general');
+    header.insertBefore(btn, countEl);
+  }
+
+  function boot() {
+    document.body.appendChild(panel);
+    installPins();
+    installGeneralTrigger();
+    renderBody();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+</body>
+</html>
