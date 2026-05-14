@@ -22,8 +22,9 @@ This document is the authoritative schema. ADRs cover **why** the shape is what 
 # --output` is not passed. Defaults to the system temp directory.
 downloads-dir = "~/Downloads"
 
-# Optional. Root directory for opt-in per-account caches. Defaults to
-# ~/.cache/mbx. Per-account `cache.path` takes precedence when set.
+# Optional. Directory holding the single SQLite cache file
+# (`<cache-dir>/cache.db`). Defaults to $XDG_CACHE_HOME/mbx or
+# ~/.cache/mbx (see ADR-0008 for the resolution chain).
 cache-dir = "~/.cache/mbx"
 ```
 
@@ -237,13 +238,14 @@ backend.auth.refresh-token.write_cmd = 'security add-generic-password -U -a "$US
 
 ## Cache (optional)
 
-Per-account, opt-in SQLite cache. Off by default ([ADR-0003](./adr/0003-cache-as-derived-state.md)).
+Per-account, opt-in SQLite cache. Off by default ([ADR-0003](./adr/0003-cache-as-derived-state.md), [ADR-0008](./adr/0008-cache-storage-and-schema.md)).
 
 ```toml
-cache.path      = "~/.cache/mbx/work.db"   # default if omitted: <cache-dir>/<name>.db
 cache.sync_days = 30                        # default: 30
 cache.folders   = ["INBOX", "Sent"]         # default: resolved alias for `inbox`
 ```
+
+There is no per-account `cache.path`: the cache file is a single `<cache-dir>/cache.db` shared across every account, keyed by canonical account name on each row (ADR-0008). A stale `cache.path = ...` line is rejected at load (`config.invalid`, exit 40) — set `cache-dir` at the top level instead.
 
 Live verbs never read this cache; it's only touched by `mbx cache *` subcommands and best-effort write-through from mutating writes.
 

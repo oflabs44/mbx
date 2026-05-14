@@ -335,6 +335,7 @@ func runEnvelopeFlag(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writ
 	if err := envelope.ApplyFlags(ctx, flagger, ids, add, remove); err != nil {
 		return err
 	}
+	cacheApplyFlagsAfterMutation(ctx, g, stderr, ids, cname, add, remove)
 	data := flagResult{
 		IDs:          canonicalIDStrings(ids, cname),
 		FlagsAdded:   flagsToStrings(add),

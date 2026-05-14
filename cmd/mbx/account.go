@@ -52,6 +52,7 @@ func newAccountRenameCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Comman
 			if err := account.RenameAccount(path, oldName, newName); err != nil {
 				return mapRenameError(err, oldName, newName, path)
 			}
+			renameCacheRows(cmd.Context(), g, stderr, oldName, newName)
 			return output.NewWriter(stdout, stderr, g.format()).Success(accountRenameResult{
 				From:  oldName,
 				To:    newName,

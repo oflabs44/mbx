@@ -590,26 +590,32 @@ mbx cache sync -a work --all                       # all folders
 | `--days <n>` | Days to sync back. Default: account's configured `sync_days` or 30. |
 | `--all` | Sync all folders. |
 
-### `mbx cache status -a <acc>[,...]`
+### `mbx cache status [-a <acc>[,...]]`
+
+Reports the single shared cache file's path, on-disk size, schema version, and per-account aggregates. Without `-a`, every account that has rows or sync_state entries is included; with `-a`, the report is filtered to those accounts (zero-rows entries still appear so you can see "configured but never synced").
 
 ```json
 {
   "v": 1,
   "data": {
-    "account": "work",
-    "path": "~/.cache/mbx/work.db",
+    "path": "~/.cache/mbx/cache.db",
     "size_bytes": 12483921,
-    "rows": 4821,
-    "last_sync_at": "2026-05-14T08:00:00Z",
-    "drift_detected": 0,
-    "folders": ["INBOX", "Sent"]
+    "schema_version": "1",
+    "accounts": [
+      {
+        "account": "work",
+        "rows": 4821,
+        "last_sync_at": "2026-05-14T08:00:00Z",
+        "folders": ["INBOX", "Sent"]
+      }
+    ]
   }
 }
 ```
 
 ### `mbx cache clear -a <acc>[,...]`
 
-Delete the cache file for the account(s). `mbx cache sync` rebuilds from scratch.
+Drop cached rows for the account(s) (envelopes and `sync_state`). The shared `cache.db` file stays; `mbx cache sync` repopulates from scratch. ADR-0008 keeps every account in one DB, so there is no per-account file to remove.
 
 ### `mbx cache list -a <acc>[,...]`
 

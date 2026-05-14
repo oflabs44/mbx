@@ -97,7 +97,6 @@ type Folder struct {
 }
 
 type Cache struct {
-	Path     string   `toml:"path,omitempty"`
 	SyncDays int      `toml:"sync_days,omitempty"`
 	Folders  []string `toml:"folders,omitempty"`
 }
@@ -251,7 +250,14 @@ func decode(r io.Reader, sourcePath string) (*Config, error) {
 			return nil, fmt.Errorf("%w: %s:%d:%d: %s", ErrInvalidTOML, sourcePath, row, col, de.Error())
 		}
 		if sm, ok := errors.AsType[*toml.StrictMissingError](err); ok {
-			return nil, fmt.Errorf("%w: %s: %s", ErrInvalidTOML, sourcePath, sm.String())
+			msg := sm.String()
+			// Per ADR-0008, cache.path is gone; surface a hint that
+			// points the user at the global cache-dir.
+			if strings.Contains(msg, `"path"`) && strings.Contains(msg, "Cache") {
+				return nil, fmt.Errorf("%w: %s: per-account cache.path is no longer supported; set the top-level `cache-dir` instead (ADR-0008). %s",
+					ErrInvalidTOML, sourcePath, msg)
+			}
+			return nil, fmt.Errorf("%w: %s: %s", ErrInvalidTOML, sourcePath, msg)
 		}
 		return nil, fmt.Errorf("%w: %s: %s", ErrInvalidTOML, sourcePath, err.Error())
 	}
@@ -505,11 +511,6 @@ func countSet(ss ...string) int {
 func expandPaths(c *Config) {
 	c.DownloadsDir = expandHome(c.DownloadsDir)
 	c.CacheDir = expandHome(c.CacheDir)
-	for _, a := range c.Accounts {
-		if a.Cache != nil {
-			a.Cache.Path = expandHome(a.Cache.Path)
-		}
-	}
 }
 
 func expandHome(p string) string {

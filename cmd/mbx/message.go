@@ -208,6 +208,7 @@ func runMessageMove(ctx context.Context, g *GlobalFlags, stdout, stderr io.Write
 	if err != nil {
 		return err
 	}
+	cacheInvalidateAfterMutation(ctx, g, stderr, ids, cname)
 	return emitMutateResult(stdout, stderr, g, cname, ids, newIDs, dest)
 }
 
@@ -241,6 +242,7 @@ func runMessageDelete(ctx context.Context, g *GlobalFlags, stdout, stderr io.Wri
 	if err := message.Delete(ctx, deleter, ids, permanent); err != nil {
 		return err
 	}
+	cacheInvalidateAfterMutation(ctx, g, stderr, ids, cname)
 	return emitMutateResult(stdout, stderr, g, cname, ids, nil, "")
 }
 

@@ -74,6 +74,7 @@ func newRootCmd(stdout, stderr io.Writer) (*cobra.Command, *GlobalFlags) {
 		newMessageCmd(g, stdout, stderr),
 		newFolderCmd(g, stdout, stderr),
 		newAttachmentCmd(g, stdout, stderr),
+		newCacheCmd(g, stdout, stderr),
 	)
 
 	return cmd, g

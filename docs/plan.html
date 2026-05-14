@@ -369,7 +369,7 @@
   <div class="phase-header">
     <span class="phase-id">phase 6</span>
     <h2 class="phase-title">Cache (opt-in, derived)</h2>
-    <span class="phase-status">pending</span>
+    <span class="phase-status done">done</span>
   </div>
   <div class="phase-body">
     <p class="phase-goal">SQLite cache as throwaway derived state. Cache verbs are a parallel surface to live verbs; mutating ops write-through best-effort.</p>
@@ -378,14 +378,15 @@
       <div><strong>Unblocks:</strong> threading-via-cache for THREAD-less servers (already covered by bounded window default)</div>
     </div>
     <ul class="task-list">
-      <li class="task"><input type="checkbox" id="t-6-1"><label for="t-6-1">Pick SQLite driver (<code>modernc.org/sqlite</code> pure-Go vs <code>mattn/go-sqlite3</code> cgo); document in ADR-0006</label></li>
-      <li class="task"><input type="checkbox" id="t-6-2"><label for="t-6-2">Schema in <code>internal/cache/schema/</code>: <code>envelopes</code>, <code>messages</code>, <code>folders</code>, <code>flags</code>, <code>sync_state</code></label></li>
-      <li class="task"><input type="checkbox" id="t-6-3"><label for="t-6-3">No-migration policy: schema-version check; on mismatch, refuse to open and tell user to <code>cache clear &amp;&amp; cache sync</code></label></li>
-      <li class="task"><input type="checkbox" id="t-6-4"><label for="t-6-4"><code>mbx cache sync -a &lt;acc&gt;</code> with <code>--folder</code>, <code>--days</code>, <code>--all</code></label></li>
-      <li class="task"><input type="checkbox" id="t-6-5"><label for="t-6-5"><code>mbx cache list</code>, <code>mbx cache search</code> (mirror envelope verb flags; cache-only)</label></li>
-      <li class="task"><input type="checkbox" id="t-6-6"><label for="t-6-6"><code>mbx cache status</code> (rows, last_sync_at, drift_detected) and <code>mbx cache clear</code></label></li>
-      <li class="task"><input type="checkbox" id="t-6-7"><label for="t-6-7">Write-through hooks in <code>envelope flag</code>, <code>message move</code>, <code>message delete</code>: best-effort, never block exit; log to stderr on <code>--verbose</code></label></li>
-      <li class="task"><input type="checkbox" id="t-6-8"><label for="t-6-8">Verify: <code>send</code> / <code>reply</code> / <code>forward</code> deliberately do NOT write-through</label></li>
+      <li class="task"><input type="checkbox" id="t-6-1" checked><label for="t-6-1">Pick SQLite driver (<code>modernc.org/sqlite</code> pure-Go vs <code>mattn/go-sqlite3</code> cgo); document in ADR-0008</label></li>
+      <li class="task"><input type="checkbox" id="t-6-2" checked><label for="t-6-2">Schema in <code>internal/cache/</code>: <code>envelopes</code>, <code>envelope_flags</code>, <code>envelope_folders</code>, <code>messages</code>, <code>sync_state</code>, <code>schema_meta</code></label></li>
+      <li class="task"><input type="checkbox" id="t-6-3" checked><label for="t-6-3">No-migration policy: schema-version check; on mismatch, refuse to open and tell user to <code>cache clear &amp;&amp; cache sync</code></label></li>
+      <li class="task"><input type="checkbox" id="t-6-4" checked><label for="t-6-4"><code>mbx cache sync -a &lt;acc&gt;</code> with <code>--folder</code>, <code>--days</code>, <code>--all</code></label></li>
+      <li class="task"><input type="checkbox" id="t-6-5" checked><label for="t-6-5"><code>mbx cache list</code>, <code>mbx cache search</code> (mirror envelope verb flags; cache-only)</label></li>
+      <li class="task"><input type="checkbox" id="t-6-6" checked><label for="t-6-6"><code>mbx cache status</code> (rows, last_sync_at, folders) and <code>mbx cache clear</code></label></li>
+      <li class="task"><input type="checkbox" id="t-6-7" checked><label for="t-6-7">Write-through hooks in <code>envelope flag</code>, <code>message move</code>, <code>message delete</code>: best-effort, never block exit; log to stderr on <code>--verbose</code></label></li>
+      <li class="task"><input type="checkbox" id="t-6-8" checked><label for="t-6-8">Verify: <code>send</code> / <code>reply</code> / <code>forward</code> deliberately do NOT write-through</label></li>
+      <li class="task"><input type="checkbox" id="t-6-9" checked><label for="t-6-9">Account rename writes through to cache: re-key envelope IDs and rename account columns (ADR-0008)</label></li>
     </ul>
   </div>
 </section>

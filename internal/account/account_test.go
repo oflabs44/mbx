@@ -12,7 +12,7 @@ func TestList_SortedByName(t *testing.T) {
 	c := &config.Config{
 		Accounts: map[string]*config.Account{
 			"work":           {Email: "you@work.com", Backend: config.Backend{Type: config.BackendIMAP}},
-			"gmail-personal": {Email: "you@gmail.com", Backend: config.Backend{Type: config.BackendGmail}, Cache: &config.Cache{Path: "/tmp/x"}},
+			"gmail-personal": {Email: "you@gmail.com", Backend: config.Backend{Type: config.BackendGmail}, Cache: &config.Cache{SyncDays: 30}},
 			"side":           {Email: "you@side.com", Backend: config.Backend{Type: config.BackendIMAP}},
 		},
 	}

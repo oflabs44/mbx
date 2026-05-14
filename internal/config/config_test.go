@@ -83,7 +83,6 @@ folder.aliases.sent   = "Sent"
 folder.aliases.drafts = "Drafts"
 folder.aliases.trash  = "Trash"
 
-cache.path      = "~/.cache/mbx/work.db"
 cache.sync_days = 90
 cache.folders   = ["INBOX", "Sent"]
 `
@@ -117,8 +116,11 @@ cache.folders   = ["INBOX", "Sent"]
 	if a.Cache == nil {
 		t.Fatal("cache should be set")
 	}
-	if !strings.HasSuffix(a.Cache.Path, "/.cache/mbx/work.db") || strings.HasPrefix(a.Cache.Path, "~") {
-		t.Errorf("cache.path = %q, expected ~/ expansion to absolute", a.Cache.Path)
+	if a.Cache.SyncDays != 90 {
+		t.Errorf("cache.sync_days = %d, want 90", a.Cache.SyncDays)
+	}
+	if len(a.Cache.Folders) != 2 {
+		t.Errorf("cache.folders = %v, want 2 entries", a.Cache.Folders)
 	}
 }
 
@@ -147,6 +149,34 @@ backend.auth.type = "password"
 backend.auth.cmd  = "echo p"
 `,
 			want: ErrMissingField,
+		},
+		{
+			name: "per-account cache.path rejected",
+			cfg: `
+[accounts.work]
+email = "x@y.z"
+
+backend.type            = "imap"
+backend.host            = "h"
+backend.port            = 1
+backend.encryption.type = "tls"
+backend.login           = "x@y.z"
+backend.auth.type       = "password"
+backend.auth.cmd        = "echo p"
+
+message.send.backend.type            = "smtp"
+message.send.backend.host            = "smtp"
+message.send.backend.port            = 587
+message.send.backend.encryption.type = "start-tls"
+message.send.backend.login           = "x@y.z"
+message.send.backend.auth.type       = "password"
+message.send.backend.auth.cmd        = "echo p"
+
+folder.aliases.inbox = "INBOX"
+
+cache.path = "~/.cache/mbx/work.db"
+`,
+			want: ErrInvalidTOML,
 		},
 		{
 			name: "unknown top-level field rejected",
