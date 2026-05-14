@@ -1,6 +1,15 @@
 # mbx config reference
 
-Reference for `~/.config/mbx/config.toml` (override with `-c/--config`). The config is parsed with `pelletier/go-toml/v2` ([ADR-0005](./adr/0005-toml-parser-pelletier-v2.md)) with `DisallowUnknownFields` enabled — typos in keys are surfaced with line/column on load (`config.invalid_toml`, exit 40).
+Reference for mbx's config file. The config is parsed with `pelletier/go-toml/v2` ([ADR-0005](./adr/0005-toml-parser-pelletier-v2.md)) with `DisallowUnknownFields` enabled — typos in keys are surfaced with line/column on load (`config.invalid_toml`, exit 40).
+
+## Where mbx looks
+
+In order, first match wins:
+
+1. `-c/--config <path>` — explicit file path passed on the command line.
+2. `$MBX_CONFIG_DIR/config.toml` — opt-in override (tests, multi-config workflows).
+3. `$XDG_CONFIG_HOME/mbx/config.toml` — the platform standard most CLI tools follow.
+4. `$HOME/.config/mbx/config.toml` — universal fallback. mbx does not use `os.UserConfigDir` because on macOS it maps to `~/Library/Application Support`, which is wrong for CLI tooling.
 
 This document is the authoritative schema. ADRs cover **why** the shape is what it is; this file covers **what** to put in the file.
 

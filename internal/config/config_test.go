@@ -253,3 +253,59 @@ func TestSecret_Variant(t *testing.T) {
 		})
 	}
 }
+
+func TestDefaultConfigDir_ResolutionOrder(t *testing.T) {
+	cases := []struct {
+		name string
+		mbx  string
+		xdg  string
+		want string // suffix match against the returned dir
+	}{
+		{"mbx env wins over xdg", "/tmp/mbx-explicit", "/tmp/xdg", "/tmp/mbx-explicit"},
+		{"xdg falls back when mbx unset", "", "/tmp/xdg", "/tmp/xdg/mbx"},
+		{"home fallback when both unset", "", "", "/.config/mbx"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Setenv("MBX_CONFIG_DIR", c.mbx)
+			t.Setenv("XDG_CONFIG_HOME", c.xdg)
+
+			got, err := DefaultConfigDir()
+			if err != nil {
+				t.Fatalf("DefaultConfigDir: %v", err)
+			}
+			if !strings.HasSuffix(got, c.want) {
+				t.Errorf("got %q, want suffix %q", got, c.want)
+			}
+		})
+	}
+}
+
+func TestDefaultConfigDir_ExpandsTilde(t *testing.T) {
+	t.Setenv("MBX_CONFIG_DIR", "~/custom-mbx")
+	t.Setenv("XDG_CONFIG_HOME", "")
+
+	got, err := DefaultConfigDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.HasPrefix(got, "~") {
+		t.Errorf("tilde not expanded: %q", got)
+	}
+	if !strings.HasSuffix(got, "/custom-mbx") {
+		t.Errorf("got %q, want suffix /custom-mbx", got)
+	}
+}
+
+func TestDefaultPath_ComposesConfigToml(t *testing.T) {
+	t.Setenv("MBX_CONFIG_DIR", "/tmp/mbxdir")
+	t.Setenv("XDG_CONFIG_HOME", "")
+
+	got, err := DefaultPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "/tmp/mbxdir/config.toml" {
+		t.Errorf("got %q", got)
+	}
+}

@@ -138,14 +138,34 @@ var (
 	ErrUnexpectedSection = errors.New("unexpected section")
 )
 
-// DefaultPath returns ~/.config/mbx/config.toml (or the OS-equivalent under
-// os.UserConfigDir).
-func DefaultPath() (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("resolving user config dir: %w", err)
+// DefaultConfigDir returns the directory mbx looks in for its files when no
+// explicit -c override is given. Resolution order:
+//  1. $MBX_CONFIG_DIR — opt-in override for tests / multi-config workflows.
+//  2. $XDG_CONFIG_HOME/mbx — the platform standard most CLI tools follow.
+//  3. $HOME/.config/mbx — universal fallback. We do not use os.UserConfigDir
+//     because on macOS it returns ~/Library/Application Support, which is
+//     wrong for CLI tooling and conflicts with what docs/config.md documents.
+func DefaultConfigDir() (string, error) {
+	if v := os.Getenv("MBX_CONFIG_DIR"); v != "" {
+		return expandHome(v), nil
 	}
-	return filepath.Join(dir, "mbx", "config.toml"), nil
+	if v := os.Getenv("XDG_CONFIG_HOME"); v != "" {
+		return filepath.Join(expandHome(v), "mbx"), nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolving user home dir: %w", err)
+	}
+	return filepath.Join(home, ".config", "mbx"), nil
+}
+
+// DefaultPath returns the config file path mbx loads when -c is not passed.
+func DefaultPath() (string, error) {
+	dir, err := DefaultConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "config.toml"), nil
 }
 
 // Load reads, decodes, and structurally validates the config at path.
