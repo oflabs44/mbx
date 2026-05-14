@@ -395,7 +395,7 @@
   <div class="phase-header">
     <span class="phase-id">phase 7</span>
     <h2 class="phase-title">Multi-account fanout</h2>
-    <span class="phase-status">pending</span>
+    <span class="phase-status done">done</span>
   </div>
   <div class="phase-body">
     <p class="phase-goal">Parallel execution across multiple accounts in one command. Partial-success default; <code>--strict</code> opt-in.</p>
@@ -404,15 +404,15 @@
       <div><strong>Unblocks:</strong> phase 8</div>
     </div>
     <ul class="task-list">
-      <li class="task"><input type="checkbox" id="t-7-1"><label for="t-7-1">Parse <code>-a a,b,c</code> AND repeated <code>-a a -a b</code>; reject wildcards like <code>*</code></label></li>
-      <li class="task"><input type="checkbox" id="t-7-2"><label for="t-7-2">When ID arg present AND <code>-a</code> passed: validate they agree; structured error if not</label></li>
-      <li class="task"><input type="checkbox" id="t-7-3"><label for="t-7-3">Goroutine fan-out with errgroup-style result collection (channels in, merged out)</label></li>
-      <li class="task"><input type="checkbox" id="t-7-4"><label for="t-7-4">Output envelope: populate <code>meta.accounts_queried</code>, <code>meta.next_cursors</code>, <code>meta.errors</code></label></li>
-      <li class="task"><input type="checkbox" id="t-7-5"><label for="t-7-5">Partial-success default: exit 0 if any account succeeded; failures keyed in <code>meta.errors</code></label></li>
-      <li class="task"><input type="checkbox" id="t-7-6"><label for="t-7-6"><code>--strict</code> flag: all-or-nothing — fail entire command if any account fails</label></li>
-      <li class="task"><input type="checkbox" id="t-7-7"><label for="t-7-7">Apply to: <code>envelope list/search</code>, <code>cache list/search/sync/status/clear</code></label></li>
-      <li class="task"><input type="checkbox" id="t-7-8"><label for="t-7-8">Per-account result ordering by date desc when merging across accounts</label></li>
-      <li class="task"><input type="checkbox" id="t-7-9"><label for="t-7-9">Document: <code>--limit N</code> is per-account, not total (in <code>--help</code> + commands.md)</label></li>
+      <li class="task"><input type="checkbox" id="t-7-1" checked><label for="t-7-1">Parse <code>-a a,b,c</code> AND repeated <code>-a a -a b</code>; reject wildcards like <code>*</code></label></li>
+      <li class="task"><input type="checkbox" id="t-7-2" checked><label for="t-7-2">When ID arg present AND <code>-a</code> passed: validate they agree; structured error if not</label></li>
+      <li class="task"><input type="checkbox" id="t-7-3" checked><label for="t-7-3">Goroutine fan-out with errgroup-style result collection (channels in, merged out)</label></li>
+      <li class="task"><input type="checkbox" id="t-7-4" checked><label for="t-7-4">Output envelope: populate <code>meta.accounts_queried</code>, <code>meta.next_cursors</code>, <code>meta.errors</code></label></li>
+      <li class="task"><input type="checkbox" id="t-7-5" checked><label for="t-7-5">Partial-success default: exit 0 if any account succeeded; failures keyed in <code>meta.errors</code></label></li>
+      <li class="task"><input type="checkbox" id="t-7-6" checked><label for="t-7-6"><code>--strict</code> flag: all-or-nothing — fail entire command if any account fails</label></li>
+      <li class="task"><input type="checkbox" id="t-7-7" checked><label for="t-7-7">Apply to: <code>envelope list/search</code>, <code>cache list/search/sync/status/clear</code></label></li>
+      <li class="task"><input type="checkbox" id="t-7-8" checked><label for="t-7-8">Per-account result ordering by date desc when merging across accounts</label></li>
+      <li class="task"><input type="checkbox" id="t-7-9" checked><label for="t-7-9">Document: <code>--limit N</code> is per-account, not total (in <code>--help</code> + commands.md)</label></li>
     </ul>
   </div>
 </section>

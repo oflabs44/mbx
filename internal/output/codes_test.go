@@ -23,11 +23,13 @@ func TestExitCode(t *testing.T) {
 		{CodeCacheSchemaMismatch, 31},
 		{CodeConfigInvalid, 40},
 		{CodeConfigUnknownAccount, 41},
+		{CodeFanoutAllFailed, 50},
 		{CodeGeneric, 1},
 		{"unknown.thing", 1},
 		{"auth.something_new", 10},
 		{"provider.future", 20},
 		{"config.future", 40},
+		{"fanout.future", 50},
 	}
 	for _, c := range cases {
 		t.Run(string(c.code), func(t *testing.T) {

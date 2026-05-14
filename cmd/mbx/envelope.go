@@ -65,12 +65,13 @@ func runEnvelopeThread(ctx context.Context, g *GlobalFlags, stdout, stderr io.Wr
 }
 
 // envelopeListMeta is the meta block for envelope list/search responses.
-// next_cursors is a per-account map; mbx single-account today and
-// fanout-shaped from day one (phase 7 fills it).
+// AccountsQueried lists the canonical names that were dispatched to (in
+// input order); NextCursors and Errors are keyed by the same names so
+// callers can resume per-account or branch on a per-account failure code.
 type envelopeListMeta struct {
-	AccountsQueried []string          `json:"accounts_queried"`
-	NextCursors     map[string]string `json:"next_cursors,omitempty"`
-	Errors          map[string]string `json:"errors,omitempty"`
+	AccountsQueried []string                   `json:"accounts_queried"`
+	NextCursors     map[string]string          `json:"next_cursors,omitempty"`
+	Errors          map[string]*output.Failure `json:"errors,omitempty"`
 }
 
 type envelopeFlags struct {
@@ -188,48 +189,38 @@ func newEnvelopeSearchCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Comma
 }
 
 func runEnvelopeList(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer, q envelope.ListQuery) error {
-	acctName, acct, err := requireSingleAccount(g)
+	res, err := runEnvelopeFanout(ctx, g, q.Cursor, func(ctx context.Context, _ string, acct *config.Account, b backend) (envelope.Page, error) {
+		// Per-account folder defaulting — each account may have a
+		// different inbox alias (Gmail-via-IMAP, Migadu virtual folders).
+		acctQ := q
+		if acctQ.Folder == "" {
+			acctQ.Folder = canonicalInbox(acct)
+		}
+		return envelope.List(ctx, b, acctQ)
+	})
 	if err != nil {
 		return err
 	}
-	if q.Folder == "" {
-		q.Folder = canonicalInbox(acct)
-	}
-	backend, err := newBackend(ctx, acctName, acct)
-	if err != nil {
-		return err
-	}
-	defer closeBackend(backend)
-	page, err := envelope.List(ctx, backend, q)
-	if err != nil {
-		return err
-	}
-	return emitEnvelopePage(stdout, stderr, g, acctName, page)
+	return emitFanoutResult(stdout, stderr, g, res)
 }
 
 func runEnvelopeSearch(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer, q envelope.SearchQuery) error {
-	acctName, acct, err := requireSingleAccount(g)
+	res, err := runEnvelopeFanout(ctx, g, q.Cursor, func(ctx context.Context, _ string, _ *config.Account, b backend) (envelope.Page, error) {
+		return envelope.Search(ctx, b, q)
+	})
 	if err != nil {
 		return err
 	}
-	backend, err := newBackend(ctx, acctName, acct)
-	if err != nil {
-		return err
-	}
-	defer closeBackend(backend)
-	page, err := envelope.Search(ctx, backend, q)
-	if err != nil {
-		return err
-	}
-	return emitEnvelopePage(stdout, stderr, g, acctName, page)
+	return emitFanoutResult(stdout, stderr, g, res)
 }
 
-func emitEnvelopePage(stdout, stderr io.Writer, g *GlobalFlags, acctName string, page envelope.Page) error {
-	meta := envelopeListMeta{AccountsQueried: []string{acctName}}
-	if page.NextCursor != "" {
-		meta.NextCursors = map[string]string{acctName: page.NextCursor}
+func emitFanoutResult(stdout, stderr io.Writer, g *GlobalFlags, res fanoutResult) error {
+	meta := envelopeListMeta{
+		AccountsQueried: res.AccountsQueried,
+		NextCursors:     res.NextCursors,
+		Errors:          res.Errors,
 	}
-	return output.NewWriter(stdout, stderr, g.format()).Success(page.Envelopes, meta)
+	return output.NewWriter(stdout, stderr, g.format()).Success(res.Envelopes, meta)
 }
 
 // canonicalInbox resolves the per-account inbox folder name. Honors
@@ -364,8 +355,11 @@ func flagsToStrings(in []envelope.Flag) []string {
 	return out
 }
 
-// requireSingleAccount enforces phase-2's single-account scope. Phase 7
-// will replace this with a fan-out helper.
+// requireSingleAccount is the gate for verbs that are fundamentally
+// single-account: folder list/mutate (folders belong to one account) and
+// message send (compose targets one identity). Envelope list/search and
+// cache reads use runEnvelopeFanout instead. Returns the canonical name
+// so emitted IDs use the stable form (ADR-0007).
 func requireSingleAccount(g *GlobalFlags) (string, *config.Account, error) {
 	if len(g.Accounts) == 0 {
 		return "", nil, output.Errorf(output.CodeInputMissingFlag, "missing required flag -a/--account")

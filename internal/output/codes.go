@@ -29,6 +29,8 @@ const (
 	CodeConfigInvalid        Code = "config.invalid"
 	CodeConfigUnknownAccount Code = "config.unknown_account"
 
+	CodeFanoutAllFailed Code = "fanout.all_failed"
+
 	CodeGeneric Code = "generic"
 )
 
@@ -64,6 +66,8 @@ func ExitCode(c Code) int {
 		return 40
 	case CodeConfigUnknownAccount:
 		return 41
+	case CodeFanoutAllFailed:
+		return 50
 	}
 	switch {
 	case strings.HasPrefix(string(c), "usage."), strings.HasPrefix(string(c), "input."):
@@ -76,6 +80,8 @@ func ExitCode(c Code) int {
 		return 30
 	case strings.HasPrefix(string(c), "config."):
 		return 40
+	case strings.HasPrefix(string(c), "fanout."):
+		return 50
 	default:
 		return 1
 	}

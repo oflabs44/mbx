@@ -61,6 +61,7 @@ Error (stderr, non-zero exit):
 | `20–29` | Provider (`20` rate limited, `21` not found, `22` ID invalidated, `23` network timeout, `24` capability unsupported, ...) |
 | `30–39` | Cache (`30` unavailable, `31` schema mismatch, ...) |
 | `40–49` | Config (`40` invalid TOML, `41` unknown account, ...) |
+| `50–59` | Fanout (`50` all-accounts-failed, ...) |
 
 ---
 
@@ -223,13 +224,15 @@ mbx envelope list -a work,gmail-personal --unread             # fanout
 | Flag | Description |
 |---|---|
 | `--folder <name>` | Filter to one folder. IMAP defaults to `INBOX`; Gmail to `INBOX` label. |
-| `--limit <n>` | Per-account limit. Default 20. |
+| `--limit <n>` | **Per-account** limit (not total). Default 20. With `-a a,b,c` you'll get up to `3 × n` envelopes. |
 | `--unread` / `--starred` / `--has-attachment` | Boolean filters. |
 | `--from <addr>` / `--to <addr>` | Address filters. |
 | `--after <date>` / `--before <date>` | ISO-8601 dates. |
 | `--query "<raw>"` | Provider-native raw query (Gmail query syntax / IMAP SEARCH). Escape hatch. |
-| `--cursor <c>` | Resume from a previous response's `meta.next_cursor`. |
-| `--strict` | Fail entire command if any fanout account fails. |
+| `--cursor <c>` | Resume from a previous response's `meta.next_cursors[<account>]`. Rejected with `usage.invalid` (exit 2) when paired with multi-account `-a` — page accounts individually. |
+| `--strict` | Fail entire command if any fanout account fails. Without it, partial success: any account that succeeded contributes envelopes, failures land in `meta.errors` keyed by account, exit `0`. |
+
+**Multi-account behaviour.** When `-a` lists more than one account, mbx fans out: each account is dispatched concurrently and its envelopes are merged into one response sorted by `date` descending. Per-account state (cursors, errors) lives under `meta.next_cursors` and `meta.errors`, keyed by the canonical account name ([ADR-0007](./adr/0007-account-renames-via-aliases.md)) — aliases are resolved before dispatch. Wildcards in `-a` (e.g. `*`) are rejected with `usage.invalid`.
 
 Output:
 ```json
@@ -253,19 +256,27 @@ Output:
     }
   ],
   "meta": {
-    "accounts_queried": ["work"],
+    "accounts_queried": ["work", "gmail-personal"],
     "next_cursors": { "work": "eyJwYWdlVG9rZW4..." },
-    "errors": {}
+    "errors": {
+      "gmail-personal": {
+        "code": "provider.network_timeout",
+        "message": "Gmail upstream error (503): backend unavailable"
+      }
+    }
   }
 }
 ```
 
+`meta.errors` is omitted when every account succeeded. With `--strict`, the first account failure aborts the command and the top-level error envelope (stderr) is the failing account's error verbatim.
+
 ### `mbx envelope search`
 
-Cross-folder keyword search. Same flags as `list`, plus a positional `"<keywords>"`.
+Cross-folder keyword search. Same flags as `list`, plus a positional `"<keywords>"`. Fanout, partial-success, and `--strict` semantics are identical to `list`.
 
 ```bash
 mbx envelope search -a work "invoice quarterly" --from cfo@company.com
+mbx envelope search -a work,gmail-personal "shipping notification"        # fanout
 ```
 
 ### `mbx envelope thread <id>`
