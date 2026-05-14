@@ -39,6 +39,7 @@ const (
 type Backend struct {
 	Host         string `toml:"host,omitempty"`
 	Port         int    `toml:"port,omitempty"`
+	TLS          string `toml:"tls,omitempty"`
 	Auth         Auth   `toml:"auth"`
 	ThreadWindow int    `toml:"thread_window,omitempty"`
 }
@@ -46,6 +47,7 @@ type Backend struct {
 type Send struct {
 	Host string `toml:"host"`
 	Port int    `toml:"port"`
+	TLS  string `toml:"tls,omitempty"`
 	Auth *Auth  `toml:"auth,omitempty"`
 }
 
@@ -63,7 +65,8 @@ const (
 )
 
 type Auth struct {
-	Type AuthType `toml:"type"`
+	Type     AuthType `toml:"type"`
+	Username string   `toml:"username,omitempty"`
 
 	Raw     string `toml:"raw,omitempty"`
 	Keyring string `toml:"keyring,omitempty"`
@@ -171,13 +174,11 @@ func decode(r io.Reader, sourcePath string) (*Config, error) {
 
 	var c Config
 	if err := dec.Decode(&c); err != nil {
-		var de *toml.DecodeError
-		if errors.As(err, &de) {
+		if de, ok := errors.AsType[*toml.DecodeError](err); ok {
 			row, col := de.Position()
 			return nil, fmt.Errorf("%w: %s:%d:%d: %s", ErrInvalidTOML, sourcePath, row, col, de.Error())
 		}
-		var sm *toml.StrictMissingError
-		if errors.As(err, &sm) {
+		if sm, ok := errors.AsType[*toml.StrictMissingError](err); ok {
 			return nil, fmt.Errorf("%w: %s: %s", ErrInvalidTOML, sourcePath, sm.String())
 		}
 		return nil, fmt.Errorf("%w: %s: %s", ErrInvalidTOML, sourcePath, err.Error())

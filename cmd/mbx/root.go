@@ -54,7 +54,10 @@ func newRootCmd(stdout, stderr io.Writer) (*cobra.Command, *GlobalFlags) {
 		return &output.Failure{Code: output.CodeUsageInvalid, Message: err.Error()}
 	})
 
-	cmd.AddCommand(newVersionCmd(g, stdout, stderr))
+	cmd.AddCommand(
+		newVersionCmd(g, stdout, stderr),
+		newAccountCmd(g, stdout, stderr),
+	)
 
 	return cmd, g
 }

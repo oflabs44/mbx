@@ -85,10 +85,8 @@ tls  = "tls"                       # "tls" | "starttls" | "none"
 [accounts.work.backend.auth]
 type     = "password"              # "password" | "oauth2"
 username = "you@company.com"
-
-[accounts.work.backend.auth.password]
-# Secret block
-cmd = "op read op://Dev/mbx-work/password"
+# Secret variant inlined on the auth block (one of raw | keyring | cmd):
+cmd      = "op read op://Dev/mbx-work/password"
 
 [accounts.work.send]
 host = "smtp.company.com"
@@ -97,10 +95,9 @@ tls  = "starttls"
 
 # Send auth defaults to inheriting from backend.auth unless overridden:
 # [accounts.work.send.auth]
-# type = "password"
+# type     = "password"
 # username = "..."
-# [accounts.work.send.auth.password]
-# cmd = "..."
+# cmd      = "..."
 ```
 
 For Proton accounts, run the local Proton Bridge and point both `backend` and `send` at `127.0.0.1` on the bridge's configured ports. Auth is password (the bridge-issued one), not OAuth.
@@ -235,9 +232,7 @@ tls  = "tls"
 [accounts.work.backend.auth]
 type     = "password"
 username = "you@company.com"
-
-[accounts.work.backend.auth.password]
-cmd = "op read op://Dev/mbx-work/password"
+cmd      = "op read op://Dev/mbx-work/password"
 
 [accounts.work.send]
 host = "smtp.company.com"
