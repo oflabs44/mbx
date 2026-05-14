@@ -31,11 +31,38 @@ const (
 	CodeGeneric Code = "generic"
 )
 
-// Prefix-based mapping documented in docs/commands.md.
+// ExitCode maps a Code to its documented process exit code. The class is
+// determined by prefix; specific codes within a class get distinct numbers
+// per the table in docs/commands.md (e.g. auth.missing_write_cmd → 11).
+// Unmapped codes within a known class fall through to the class baseline.
 func ExitCode(c Code) int {
-	switch {
-	case c == CodeOK:
+	switch c {
+	case CodeOK:
 		return 0
+	case CodeAuthRefreshFailed:
+		return 10
+	case CodeAuthMissingWriteCmd:
+		return 11
+	case CodeAuthInvalid:
+		return 12
+	case CodeProviderRateLimit:
+		return 20
+	case CodeProviderNotFound:
+		return 21
+	case CodeProviderIDInvalidated:
+		return 22
+	case CodeProviderTimeout:
+		return 23
+	case CodeCacheUnavailable:
+		return 30
+	case CodeCacheSchemaMismatch:
+		return 31
+	case CodeConfigInvalid:
+		return 40
+	case CodeConfigUnknownAccount:
+		return 41
+	}
+	switch {
 	case strings.HasPrefix(string(c), "usage."), strings.HasPrefix(string(c), "input."):
 		return 2
 	case strings.HasPrefix(string(c), "auth."):
