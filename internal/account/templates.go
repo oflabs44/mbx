@@ -28,7 +28,10 @@ backend.auth.scopes    = ["https://mail.google.com/"]
 backend.auth.client-secret.cmd = "REPLACE  # e.g. op read op://Dev/mbx-{{name}}/client-secret"
 
 backend.auth.refresh-token.cmd       = "REPLACE  # e.g. op read op://Dev/mbx-{{name}}/refresh-token"
-backend.auth.refresh-token.write_cmd = "REPLACE  # e.g. op item edit mbx-{{name}} refresh-token[password]=-"
+# write_cmd receives the new refresh token on stdin. Use $(cat) to splice it
+# into the assignment value — op item edit does not accept "[type]=-" for stdin.
+# TOML literal strings (single-quoted) keep $ and " intact.
+backend.auth.refresh-token.write_cmd = 'REPLACE  # e.g. op item edit mbx-{{name}} "refresh-token[password]=$(cat)"'
 `
 
 const imapTemplate = `# Fill in the REPLACE values, then run ` + "`mbx account doctor {{name}}`" + `.

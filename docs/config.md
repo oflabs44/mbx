@@ -154,7 +154,18 @@ Read variant and write target are decoupled on purpose ([ADR-0001](./adr/0001-se
 backend.auth.client-secret.cmd = "op read op://Dev/mbx-gmail-personal/client-secret"
 
 backend.auth.refresh-token.cmd       = "op read op://Dev/mbx-gmail-personal/refresh-token"
-backend.auth.refresh-token.write_cmd = "op item edit mbx-gmail-personal refresh-token[password]=-"
+
+# write_cmd receives the new refresh token on stdin. `op item edit` does not
+# accept `field[type]=-` for stdin; splice it in with $(cat) and use a TOML
+# literal string (single-quoted) so the $ and " survive verbatim.
+backend.auth.refresh-token.write_cmd = 'op item edit mbx-gmail-personal "refresh-token[password]=$(cat)"'
+```
+
+The `mbx-gmail-personal` item must already have a field literally named `refresh-token` of type `password`. If you'd rather use a Login item's built-in `password` field, point both `cmd` and `write_cmd` at it:
+
+```toml
+backend.auth.refresh-token.cmd       = "op read op://Dev/mbx-gmail-personal/password"
+backend.auth.refresh-token.write_cmd = 'op item edit mbx-gmail-personal "password=$(cat)"'
 ```
 
 ### Recipe — `pass`
@@ -164,18 +175,23 @@ backend.auth.refresh-token.cmd       = "pass mbx-gmail-personal/refresh-token"
 backend.auth.refresh-token.write_cmd = "pass insert -m -f mbx-gmail-personal/refresh-token"
 ```
 
+`pass insert -m` reads the value from stdin as-is; no shell tricks needed.
+
 ### Recipe — macOS keychain via `security`
 
 ```toml
-backend.auth.refresh-token.cmd       = "security find-generic-password -a $USER -s mbx-gmail-personal-rt -w"
-backend.auth.refresh-token.write_cmd = "security add-generic-password -U -a $USER -s mbx-gmail-personal-rt -w"
+backend.auth.refresh-token.cmd = "security find-generic-password -a $USER -s mbx-gmail-personal-rt -w"
+
+# `security -w` requires the value as an argument, not stdin. Splice with $(cat)
+# in a TOML literal string.
+backend.auth.refresh-token.write_cmd = 'security add-generic-password -U -a "$USER" -s mbx-gmail-personal-rt -w "$(cat)"'
 ```
 
 ### Recipe — `keyring` variant (OS keychain native)
 
 ```toml
 backend.auth.refresh-token.keyring   = "mbx-gmail-personal-refresh-token"
-backend.auth.refresh-token.write_cmd = "security add-generic-password -U -a $USER -s mbx-gmail-personal-refresh-token -w"
+backend.auth.refresh-token.write_cmd = 'security add-generic-password -U -a "$USER" -s mbx-gmail-personal-refresh-token -w "$(cat)"'
 ```
 
 ## Cache (optional)

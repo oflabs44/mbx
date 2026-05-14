@@ -118,7 +118,14 @@ func Authorize(ctx context.Context, cfg *oauth2.Config, opts AuthorizeOpts) (*oa
 		return nil, fmt.Errorf("generating state: %w", err)
 	}
 
-	authOpts := []oauth2.AuthCodeOption{oauth2.AccessTypeOffline}
+	// access_type=offline asks for a refresh token; prompt=consent forces the
+	// consent screen even on re-runs so the provider re-issues a refresh
+	// token (Google in particular won't issue one to a previously-consented
+	// app otherwise).
+	authOpts := []oauth2.AuthCodeOption{
+		oauth2.AccessTypeOffline,
+		oauth2.SetAuthURLParam("prompt", "consent"),
+	}
 	var exchangeOpts []oauth2.AuthCodeOption
 	if opts.PKCE {
 		verifier := oauth2.GenerateVerifier()

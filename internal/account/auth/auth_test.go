@@ -181,6 +181,35 @@ func TestAuthorize_PKCEAttachesChallenge(t *testing.T) {
 	}
 }
 
+func TestAuthorize_RequestsOfflineAccessAndConsent(t *testing.T) {
+	tokenServer := newFakeTokenServer(t, "tok", "ref")
+	defer tokenServer.Close()
+	cfg := newFakeOAuthConfig(tokenServer.URL)
+
+	var captured string
+	browser := func(authURL string) error {
+		captured = authURL
+		go fakeBrowser(t, authURL, hijackState(authURL))
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	_, err := Authorize(ctx, cfg, AuthorizeOpts{OpenBrowser: browser})
+	if err != nil {
+		t.Fatalf("Authorize: %v", err)
+	}
+
+	u, _ := url.Parse(captured)
+	if got := u.Query().Get("access_type"); got != "offline" {
+		t.Errorf("access_type = %q, want offline (required for refresh-token issuance)", got)
+	}
+	if got := u.Query().Get("prompt"); got != "consent" {
+		t.Errorf("prompt = %q, want consent (required so re-runs re-issue a refresh token)", got)
+	}
+}
+
 // --- helpers ---
 
 // newFakeOAuthConfig returns an oauth2.Config whose token endpoint points at
