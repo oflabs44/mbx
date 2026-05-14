@@ -107,6 +107,14 @@ message.send.backend.encryption.insecure = true
 
 For **IMAP+OAuth** (corporate Microsoft 365, Google Workspace IMAP), `backend.auth.type = "oauth2"` with the same nested secret blocks as Gmail above. `message.send.backend.auth.*` may use OAuth too.
 
+### `backend.thread_window` (IMAP only)
+
+Caps the corpus the client-side threading algorithm scans when the server doesn't advertise `THREAD=REFERENCES`. Default `1000`; the algorithm fetches the most-recent N envelopes in the anchor's folder and threads over them. Servers that do advertise THREAD ignore this knob — the server identifies the cluster.
+
+```toml
+backend.thread_window = 1000   # default; bump if a folder routinely holds long threads beyond the recent 1000
+```
+
 ## Folder aliases
 
 mbx commands refer to folders by canonical roles (`inbox`, `sent`, `drafts`, `trash`) but each provider names its folders differently. `folder.aliases.*` is the mapping.

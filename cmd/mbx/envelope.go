@@ -25,8 +25,43 @@ func newEnvelopeCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 		newEnvelopeListCmd(g, stdout, stderr),
 		newEnvelopeSearchCmd(g, stdout, stderr),
 		newEnvelopeFlagCmd(g, stdout, stderr),
+		newEnvelopeThreadCmd(g, stdout, stderr),
 	)
 	return cmd
+}
+
+func newEnvelopeThreadCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
+	c := &cobra.Command{
+		Use:   "thread <id>",
+		Short: "Return the thread containing the given envelope",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := mbxid.Parse(args[0])
+			if err != nil {
+				return output.Errorf(output.CodeUsageInvalid, "parsing id: %s", err.Error())
+			}
+			return runEnvelopeThread(cmd.Context(), g, stdout, stderr, id)
+		},
+	}
+	return c
+}
+
+func runEnvelopeThread(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer, id mbxid.ID) error {
+	acct, b, err := openBackendForID(ctx, g, id)
+	if err != nil {
+		return err
+	}
+	defer closeBackend(b)
+	t, ok := b.(envelope.ThreadSearcher)
+	if !ok {
+		return unsupportedErr(acct, "threading")
+	}
+	thread, err := envelope.ThreadOf(ctx, t, envelope.ThreadQuery{ID: id})
+	if err != nil {
+		return err
+	}
+	meta := envelopeListMeta{AccountsQueried: []string{id.Account}}
+	return output.NewWriter(stdout, stderr, g.format()).Success(thread, meta)
 }
 
 // envelopeListMeta is the meta block for envelope list/search responses.
