@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mbx — Implementation Plan</title>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --fg: #1a1a1a;
+    --muted: #6b6b6b;
+    --line: #e6e6e0;
+    --card: #ffffff;
+    --accent: #2c5e2e;
+    --accent-dim: #d6e4d7;
+    --warn: #a64500;
+    --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f0e;
+      --fg: #e8e6df;
+      --muted: #8a8a85;
+      --line: #2a2a27;
+      --card: #1a1a18;
+      --accent: #7ec47e;
+      --accent-dim: #1e2e1e;
+      --warn: #e88a3f;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 48px 24px 96px; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 32px; }
+  h1 {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+  .progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 16px 0 0;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .progress-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.25s ease;
+    width: 0;
+  }
+  .progress-text { color: var(--muted); min-width: 90px; text-align: right; }
+  .reset-btn {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .reset-btn:hover { color: var(--warn); border-color: var(--warn); }
+
+  .phase {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .phase-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .phase-id {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+  .phase-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+  }
+  .phase-status {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    background: var(--line);
+    color: var(--muted);
+    margin-left: auto;
+  }
+  .phase-status.done {
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+  .phase-status.in-progress {
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+  .phase-body { padding: 20px 24px 24px; }
+  .phase-goal {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 0 0 16px;
+    padding-left: 12px;
+    border-left: 2px solid var(--line);
+  }
+  .phase-meta {
+    display: flex;
+    gap: 24px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .phase-meta strong { color: var(--fg); font-weight: 500; }
+  .phase-meta code { font-family: var(--mono); font-size: 11px; }
+
+  .task-list { list-style: none; padding: 0; margin: 0; }
+  .task {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 0;
+    font-size: 14px;
+  }
+  .task input[type="checkbox"] {
+    flex-shrink: 0;
+    margin-top: 4px;
+    cursor: pointer;
+    accent-color: var(--accent);
+  }
+  .task label { cursor: pointer; flex: 1; }
+  .task.done label { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+  .task code {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--line);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+    color: var(--muted);
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  footer code { font-family: var(--mono); font-size: 12px; }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-top: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>mbx — implementation plan</h1>
+  <p class="subtitle">Agent-first email CLI. Phased build order; each phase depends only on what came before.</p>
+  <div class="progress-wrap">
+    <div class="progress-bar"><div class="progress-fill" id="bar"></div></div>
+    <span class="progress-text" id="count">0 / 0</span>
+    <button class="reset-btn" onclick="reset()">reset</button>
+  </div>
+</header>
+
+<!-- PHASE 0 -->
+<section class="phase" data-phase="0">
+  <div class="phase-header">
+    <span class="phase-id">phase 0</span>
+    <h2 class="phase-title">Scaffolding &amp; cross-cutting</h2>
+    <span class="phase-status">pending</span>
+  </div>
+  <div class="phase-body">
+    <p class="phase-goal">Wire up the skeleton everything else builds on. No commands work end-to-end yet; the foundations do.</p>
+    <div class="phase-meta">
+      <div><strong>Depends on:</strong> nothing</div>
+      <div><strong>Unblocks:</strong> all phases</div>
+    </div>
+    <ul class="task-list">
+      <li class="task"><input type="checkbox" id="t-0-1"><label for="t-0-1">Add <code>github.com/spf13/cobra</code>; wire <code>cmd/mbx/main.go</code> to a root command that prints help</label></li>
+      <li class="task"><input type="checkbox" id="t-0-2"><label for="t-0-2">Define global flags on root command: <code>-a</code>, <code>-o</code>, <code>-c</code>, <code>--strict</code>, <code>--verbose</code>, <code>--debug</code>, <code>--no-color</code></label></li>
+      <li class="task"><input type="checkbox" id="t-0-3"><label for="t-0-3">Pick TOML parser (<code>BurntSushi/toml</code> vs <code>pelletier/go-toml/v2</code>) and document choice in ADR-0005</label></li>
+      <li class="task"><input type="checkbox" id="t-0-4"><label for="t-0-4">Implement <code>internal/config/</code>: TOML load + zod-style validation against typed account schemas</label></li>
+      <li class="task"><input type="checkbox" id="t-0-5"><label for="t-0-5">Implement <code>internal/secret/</code>: resolver for <code>raw</code> / <code>keyring</code> / <code>cmd</code> / <code>read_cmd</code> / <code>write_cmd</code></label></li>
+      <li class="task"><input type="checkbox" id="t-0-6"><label for="t-0-6">Implement <code>internal/mbxid/</code>: parse + encode + percent-encoding for IMAP folder segment</label></li>
+      <li class="task"><input type="checkbox" id="t-0-7"><label for="t-0-7">Implement <code>internal/output/</code>: <code>{v:1, data, meta}</code> success writer + <code>{v:1, error}</code> stderr writer</label></li>
+      <li class="task"><input type="checkbox" id="t-0-8"><label for="t-0-8">Define error code taxonomy + exit code map in <code>internal/output/codes.go</code></label></li>
+      <li class="task"><input type="checkbox" id="t-0-9"><label for="t-0-9">Root context with <code>signal.NotifyContext</code> for Ctrl-C handling; optional <code>--timeout</code> deadline</label></li>
+      <li class="task"><input type="checkbox" id="t-0-10"><label for="t-0-10">Smoke test: <code>mbx -o json</code> emits a versioned envelope; <code>mbx --no-such-flag</code> emits a structured error</label></li>
+    </ul>
+  </div>
+</section>
+
+<!-- PHASE 1 -->
+<section class="phase" data-phase="1">
+  <div class="phase-header">
+    <span class="phase-id">phase 1</span>
+    <h2 class="phase-title">Account lifecycle</h2>
+    <span class="phase-status">pending</span>
+  </div>
+  <div class="phase-body">
+    <p class="phase-goal">Configure accounts, run OAuth flows, validate setup. No mail operations yet — but agents can stand up a working config.</p>
+    <div class="phase-meta">
+      <div><strong>Depends on:</strong> phase 0</div>
+      <div><strong>Unblocks:</strong> phases 2, 3</div>
+    </div>
+    <ul class="task-list">
+      <li class="task"><input type="checkbox" id="t-1-1"><label for="t-1-1"><code>mbx account list</code> reads config, returns account metadata</label></li>
+      <li class="task"><input type="checkbox" id="t-1-2"><label for="t-1-2"><code>mbx account add &lt;name&gt;</code> appends a commented template block to the config file</label></li>
+      <li class="task"><input type="checkbox" id="t-1-3"><label for="t-1-3">OAuth flow plumbing in <code>internal/account/auth/</code>: <code>golang.org/x/oauth2</code> + local HTTP listener for callback (host/port from config)</label></li>
+      <li class="task"><input type="checkbox" id="t-1-4"><label for="t-1-4"><code>mbx account auth &lt;name&gt;</code>: refuses if <code>refresh-token.write_cmd</code> unset; opens browser; persists via <code>write_cmd</code></label></li>
+      <li class="task"><input type="checkbox" id="t-1-5"><label for="t-1-5"><code>mbx account doctor &lt;name&gt;</code>: config parse, secrets resolve, auth probe, folder list, capability flags (THREAD, IDLE)</label></li>
+      <li class="task"><input type="checkbox" id="t-1-6"><label for="t-1-6"><code>mbx account remove &lt;name&gt;</code> comments out the config block (does not touch external secrets)</label></li>
+    </ul>
+  </div>
+</section>
+
+<!-- PHASE 2 -->
+<section class="phase" data-phase="2">
+  <div class="phase-header">
+    <span class="phase-id">phase 2</span>
+    <h2 class="phase-title">Read path — Gmail</h2>
+    <span class="phase-status">pending</span>
+  </div>
+  <div class="phase-body">
+    <p class="phase-goal">Get a single end-to-end provider working before duplicating effort. Gmail first because the SDK is friendlier and OAuth is already set up.</p>
+    <div class="phase-meta">
+      <div><strong>Depends on:</strong> phase 1</div>
+      <div><strong>Unblocks:</strong> phase 3 (pattern replication)</div>
+    </div>
+    <ul class="task-list">
+      <li class="task"><input type="checkbox" id="t-2-1"><label for="t-2-1"><code>internal/provider/gmail/</code> skeleton with auth-aware HTTP client wrapping <code>google.golang.org/api/gmail/v1</code></label></li>
+      <li class="task"><input type="checkbox" id="t-2-2"><label for="t-2-2">Define <code>EnvelopeLister</code> in <code>internal/envelope/</code> (narrow consumer interface)</label></li>
+      <li class="task"><input type="checkbox" id="t-2-3"><label for="t-2-3">Gmail impl of <code>EnvelopeLister</code>: <code>users.messages.list</code> + selective <code>get</code> for envelope fields</label></li>
+      <li class="task"><input type="checkbox" id="t-2-4"><label for="t-2-4"><code>mbx envelope list</code> with filter flags (<code>--unread</code>, <code>--from</code>, <code>--after</code>, <code>--before</code>, <code>--has-attachment</code>, <code>--starred</code>, <code>--folder</code>, <code>--limit</code>, <code>--cursor</code>)</label></li>
+      <li class="task"><input type="checkbox" id="t-2-5"><label for="t-2-5"><code>mbx envelope search "&lt;keywords&gt;"</code> with same flags + <code>--query</code> raw escape hatch</label></li>
+      <li class="task"><input type="checkbox" id="t-2-6"><label for="t-2-6">Define <code>MessageReader</code> in <code>internal/message/</code>; Gmail impl with <code>format=full</code> + MIME parse</label></li>
+      <li class="task"><input type="checkbox" id="t-2-7"><label for="t-2-7">Plain-first body extraction with html→text fallback; <code>body_source</code> field; <code>--html</code> / <code>--raw</code> opt-ins</label></li>
+      <li class="task"><input type="checkbox" id="t-2-8"><label for="t-2-8"><code>mbx message read</code> with <code>--preview</code>, <code>-H</code>, <code>--no-headers</code></label></li>
+      <li class="task"><input type="checkbox" id="t-2-9"><label for="t-2-9"><code>mbx message export &lt;id&gt;</code> dumps raw RFC 5322 to stdout</label></li>
+      <li class="task"><input type="checkbox" id="t-2-10"><label for="t-2-10">Define <code>FolderLister</code>; Gmail impl maps labels→folders correctly (system labels filtered to flags)</label></li>
+      <li class="task"><input type="checkbox" id="t-2-11"><label for="t-2-11"><code>mbx folder list</code></label></li>
+      <li class="task"><input type="checkbox" id="t-2-12"><label for="t-2-12">Define <code>AttachmentLister</code> + <code>AttachmentDownloader</code>; Gmail impls</label></li>
+      <li class="task"><input type="checkbox" id="t-2-13"><label for="t-2-13"><code>mbx attachment list</code>, <code>mbx attachment download</code></label></li>
+    </ul>
+  </div>
+</section>
+
+<!-- PHASE 3 -->
+<section class="phase" data-phase="3">
+  <div class="phase-header">
+    <span class="phase-id">phase 3</span>
+    <h2 class="phase-title">Read path — IMAP (incl. Proton via bridge)</h2>
+    <span class="phase-status">pending</span>
+  </div>
+  <div class="phase-body">
+    <p class="phase-goal">Second provider satisfying the same narrow consumer interfaces. Validates the abstraction shape and unlocks Proton.</p>
+    <div class="phase-meta">
+      <div><strong>Depends on:</strong> phase 2</div>
+      <div><strong>Unblocks:</strong> phase 4</div>
+    </div>
+    <ul class="task-list">
+      <li class="task"><input type="checkbox" id="t-3-1"><label for="t-3-1"><code>internal/provider/imap/</code> skeleton with <code>emersion/go-imap</code> v2 client + SASL auth (<code>PLAIN</code> + <code>XOAUTH2</code>)</label></li>
+      <li class="task"><input type="checkbox" id="t-3-2"><label for="t-3-2">IMAP impl of <code>EnvelopeLister</code> (<code>FETCH ENVELOPE FLAGS UID</code> + filter translation)</label></li>
+      <li class="task"><input type="checkbox" id="t-3-3"><label for="t-3-3">IMAP impl of <code>MessageReader</code> using <code>emersion/go-message</code> for MIME parsing</label></li>
+      <li class="task"><input type="checkbox" id="t-3-4"><label for="t-3-4">IMAP impls of <code>FolderLister</code>, <code>AttachmentLister</code>, <code>AttachmentDownloader</code></label></li>
+      <li class="task"><input type="checkbox" id="t-3-5"><label for="t-3-5"><code>UIDVALIDITY</code> tracking: store per-folder value; detect rolls; emit <code>provider.id_invalidated</code> on stale IDs</label></li>
+      <li class="task"><input type="checkbox" id="t-3-6"><label for="t-3-6">IMAP raw query (<code>--query "FROM cfo@..."</code>) compiled to <code>SEARCH</code> criteria</label></li>
+      <li class="task"><input type="checkbox" id="t-3-7"><label for="t-3-7">All phase-2 commands work end-to-end against a real Proton-bridge endpoint (manual smoke)</label></li>
+    </ul>
+  </div>
+</section>
+
+<!-- PHASE 4 -->
+<section class="phase" data-phase="4">
+  <div class="phase-header">
+    <span class="phase-id">phase 4</span>
+    <h2 class="phase-title">Write path</h2>
+    <span class="phase-status">pending</span>
+  </div>
+  <div class="phase-body">
+    <p class="phase-goal">Mutating ops on both providers: flags, moves, deletes, send, reply, forward. Folder mutation too.</p>
+    <div class="phase-meta">
+      <div><strong>Depends on:</strong> phase 3</div>
+      <div><strong>Unblocks:</strong> phase 6 (cache write-through has nothing to mirror without this)</div>
+    </div>
+    <ul class="task-list">
+      <li class="task"><input type="checkbox" id="t-4-1"><label for="t-4-1">Consumer interfaces: <code>EnvelopeFlagger</code>, <code>MessageMover</code>, <code>MessageCopier</code>, <code>MessageDeleter</code></label></li>
+      <li class="task"><input type="checkbox" id="t-4-2"><label for="t-4-2">Gmail impls (labels diff for move; <code>users.messages.trash</code> / <code>delete</code>)</label></li>
+      <li class="task"><input type="checkbox" id="t-4-3"><label for="t-4-3">IMAP impls (<code>STORE</code> flags; <code>MOVE</code> with <code>COPY</code>+<code>EXPUNGE</code> fallback)</label></li>
+      <li class="task"><input type="checkbox" id="t-4-4"><label for="t-4-4"><code>mbx envelope flag &lt;id&gt;... --add/--remove</code> with normalized vocabulary (<code>seen</code>, <code>flagged</code>, <code>answered</code>, <code>draft</code>, <code>deleted</code>)</label></li>
+      <li class="task"><input type="checkbox" id="t-4-5"><label for="t-4-5"><code>mbx message move</code>, <code>copy</code>, <code>delete</code> (with <code>--permanent</code>)</label></li>
+      <li class="task"><input type="checkbox" id="t-4-6"><label for="t-4-6">Body input: validate exactly-one of <code>--body</code> / <code>--body-file</code> / <code>--body-stdin</code>; structured error otherwise</label></li>
+      <li class="task"><input type="checkbox" id="t-4-7"><label for="t-4-7">MIME composer in <code>internal/message/compose/</code> using <code>emersion/go-message</code>: text/plain, text/html, attachments</label></li>
+      <li class="task"><input type="checkbox" id="t-4-8"><label for="t-4-8">Gmail send: <code>users.messages.send</code> with raw MIME body</label></li>
+      <li class="task"><input type="checkbox" id="t-4-9"><label for="t-4-9">SMTP send via <code>emersion/go-smtp</code> client for IMAP accounts (auth inherits from backend unless overridden)</label></li>
+      <li class="task"><input type="checkbox" id="t-4-10"><label for="t-4-10"><code>mbx message send</code></label></li>
+      <li class="task"><input type="checkbox" id="t-4-11"><label for="t-4-11"><code>mbx message reply</code> (with <code>--all</code>, <code>--quote</code>); preserves <code>In-Reply-To</code> + <code>References</code></label></li>
+      <li class="task"><input type="checkbox" id="t-4-12"><label for="t-4-12"><code>mbx message forward</code></label></li>
+      <li class="task"><input type="checkbox" id="t-4-13"><label for="t-4-13">Folder mutation: <code>mbx folder add</code>, <code>delete</code>, <code>expunge</code>, <code>purge</code> (with <code>--yes</code> confirmation)</label></li>
+    </ul>
+  </div>
+</section>
+
+<!-- PHASE 5 -->
+<section class="phase" data-phase="5">
+  <div class="phase-header">
+    <span class="phase-id">phase 5</span>
+    <h2 class="phase-title">Threading</h2>
+    <span class="phase-status">pending</span>
+  </div>
+  <div class="phase-body">
+    <p class="phase-goal">Universal threading across providers — server-side fast path when supported, ported pimalaya/core algorithm otherwise.</p>
+    <div class="phase-meta">
+      <div><strong>Depends on:</strong> phase 3</div>
+      <div><strong>Unblocks:</strong> phase 8 (polish)</div>
+    </div>
+    <ul class="task-list">
+      <li class="task"><input type="checkbox" id="t-5-1"><label for="t-5-1">Gmail: surface native <code>threadId</code> as the mbx thread ID; <code>users.threads.get</code> for full thread</label></li>
+      <li class="task"><input type="checkbox" id="t-5-2"><label for="t-5-2">IMAP: probe <code>CAPABILITY</code> for <code>THREAD=REFERENCES</code>; use <code>UID THREAD REFERENCES</code> command when present</label></li>
+      <li class="task"><input type="checkbox" id="t-5-3"><label for="t-5-3">Port pimalaya/core thread algorithm to Go (<code>internal/envelope/thread.go</code>): adjacency map keyed by Message-ID, virtual root node</label></li>
+      <li class="task"><input type="checkbox" id="t-5-4"><label for="t-5-4">Patch port: canonicalize Message-IDs (trim <code>&lt; &gt;</code>, whitespace)</label></li>
+      <li class="task"><input type="checkbox" id="t-5-5"><label for="t-5-5">Patch port: fall back to last <code>References</code> entry when <code>In-Reply-To</code> missing/unresolvable</label></li>
+      <li class="task"><input type="checkbox" id="t-5-6"><label for="t-5-6">Bounded working window (<code>backend.thread_window</code>, default 1000) for client-side fallback</label></li>
+      <li class="task"><input type="checkbox" id="t-5-7"><label for="t-5-7"><code>mbx envelope thread &lt;id&gt;</code> returns ordered envelopes + depth map</label></li>
+    </ul>
+  </div>
+</section>
+
+<!-- PHASE 6 -->
+<section class="phase" data-phase="6">
+  <div class="phase-header">
+    <span class="phase-id">phase 6</span>
+    <h2 class="phase-title">Cache (opt-in, derived)</h2>
+    <span class="phase-status">pending</span>
+  </div>
+  <div class="phase-body">
+    <p class="phase-goal">SQLite cache as throwaway derived state. Cache verbs are a parallel surface to live verbs; mutating ops write-through best-effort.</p>
+    <div class="phase-meta">
+      <div><strong>Depends on:</strong> phase 4 (need mutation ops to write-through)</div>
+      <div><strong>Unblocks:</strong> threading-via-cache for THREAD-less servers (already covered by bounded window default)</div>
+    </div>
+    <ul class="task-list">
+      <li class="task"><input type="checkbox" id="t-6-1"><label for="t-6-1">Pick SQLite driver (<code>modernc.org/sqlite</code> pure-Go vs <code>mattn/go-sqlite3</code> cgo); document in ADR-0006</label></li>
+      <li class="task"><input type="checkbox" id="t-6-2"><label for="t-6-2">Schema in <code>internal/cache/schema/</code>: <code>envelopes</code>, <code>messages</code>, <code>folders</code>, <code>flags</code>, <code>sync_state</code></label></li>
+      <li class="task"><input type="checkbox" id="t-6-3"><label for="t-6-3">No-migration policy: schema-version check; on mismatch, refuse to open and tell user to <code>cache clear &amp;&amp; cache sync</code></label></li>
+      <li class="task"><input type="checkbox" id="t-6-4"><label for="t-6-4"><code>mbx cache sync -a &lt;acc&gt;</code> with <code>--folder</code>, <code>--days</code>, <code>--all</code></label></li>
+      <li class="task"><input type="checkbox" id="t-6-5"><label for="t-6-5"><code>mbx cache list</code>, <code>mbx cache search</code> (mirror envelope verb flags; cache-only)</label></li>
+      <li class="task"><input type="checkbox" id="t-6-6"><label for="t-6-6"><code>mbx cache status</code> (rows, last_sync_at, drift_detected) and <code>mbx cache clear</code></label></li>
+      <li class="task"><input type="checkbox" id="t-6-7"><label for="t-6-7">Write-through hooks in <code>envelope flag</code>, <code>message move</code>, <code>message delete</code>: best-effort, never block exit; log to stderr on <code>--verbose</code></label></li>
+      <li class="task"><input type="checkbox" id="t-6-8"><label for="t-6-8">Verify: <code>send</code> / <code>reply</code> / <code>forward</code> deliberately do NOT write-through</label></li>
+    </ul>
+  </div>
+</section>
+
+<!-- PHASE 7 -->
+<section class="phase" data-phase="7">
+  <div class="phase-header">
+    <span class="phase-id">phase 7</span>
+    <h2 class="phase-title">Multi-account fanout</h2>
+    <span class="phase-status">pending</span>
+  </div>
+  <div class="phase-body">
+    <p class="phase-goal">Parallel execution across multiple accounts in one command. Partial-success default; <code>--strict</code> opt-in.</p>
+    <div class="phase-meta">
+      <div><strong>Depends on:</strong> phase 6 (cache verbs also fan out)</div>
+      <div><strong>Unblocks:</strong> phase 8</div>
+    </div>
+    <ul class="task-list">
+      <li class="task"><input type="checkbox" id="t-7-1"><label for="t-7-1">Parse <code>-a a,b,c</code> AND repeated <code>-a a -a b</code>; reject wildcards like <code>*</code></label></li>
+      <li class="task"><input type="checkbox" id="t-7-2"><label for="t-7-2">When ID arg present AND <code>-a</code> passed: validate they agree; structured error if not</label></li>
+      <li class="task"><input type="checkbox" id="t-7-3"><label for="t-7-3">Goroutine fan-out with errgroup-style result collection (channels in, merged out)</label></li>
+      <li class="task"><input type="checkbox" id="t-7-4"><label for="t-7-4">Output envelope: populate <code>meta.accounts_queried</code>, <code>meta.next_cursors</code>, <code>meta.errors</code></label></li>
+      <li class="task"><input type="checkbox" id="t-7-5"><label for="t-7-5">Partial-success default: exit 0 if any account succeeded; failures keyed in <code>meta.errors</code></label></li>
+      <li class="task"><input type="checkbox" id="t-7-6"><label for="t-7-6"><code>--strict</code> flag: all-or-nothing — fail entire command if any account fails</label></li>
+      <li class="task"><input type="checkbox" id="t-7-7"><label for="t-7-7">Apply to: <code>envelope list/search</code>, <code>cache list/search/sync/status/clear</code></label></li>
+      <li class="task"><input type="checkbox" id="t-7-8"><label for="t-7-8">Per-account result ordering by date desc when merging across accounts</label></li>
+      <li class="task"><input type="checkbox" id="t-7-9"><label for="t-7-9">Document: <code>--limit N</code> is per-account, not total (in <code>--help</code> + commands.md)</label></li>
+    </ul>
+  </div>
+</section>
+
+<!-- PHASE 8 -->
+<section class="phase" data-phase="8">
+  <div class="phase-header">
+    <span class="phase-id">phase 8</span>
+    <h2 class="phase-title">Polish &amp; ship</h2>
+    <span class="phase-status">pending</span>
+  </div>
+  <div class="phase-body">
+    <p class="phase-goal">Everything that's not features but is required to be ship-quality.</p>
+    <div class="phase-meta">
+      <div><strong>Depends on:</strong> all prior phases</div>
+    </div>
+    <ul class="task-list">
+      <li class="task"><input type="checkbox" id="t-8-1"><label for="t-8-1">Complete help text on every command (one-line + example block)</label></li>
+      <li class="task"><input type="checkbox" id="t-8-2"><label for="t-8-2">Shell completion via Cobra: <code>mbx completion bash|zsh|fish</code></label></li>
+      <li class="task"><input type="checkbox" id="t-8-3"><label for="t-8-3">Audit error code taxonomy against actual emitted errors; document complete list in commands.md</label></li>
+      <li class="task"><input type="checkbox" id="t-8-4"><label for="t-8-4">CHANGELOG.md scaffolding + v0.1.0 entry</label></li>
+      <li class="task"><input type="checkbox" id="t-8-5"><label for="t-8-5">GitHub Actions: lint + test on PR, build matrix (darwin/linux × amd64/arm64) on tag</label></li>
+      <li class="task"><input type="checkbox" id="t-8-6"><label for="t-8-6">Homebrew tap formula OR direct binary release with checksums</label></li>
+      <li class="task"><input type="checkbox" id="t-8-7"><label for="t-8-7">Write companion Claude Code skill (<code>mbx-assistant</code>) that knows the command surface + JSON shapes</label></li>
+      <li class="task"><input type="checkbox" id="t-8-8"><label for="t-8-8">README quickstart: install → configure one Gmail account → first triage loop</label></li>
+      <li class="task"><input type="checkbox" id="t-8-9"><label for="t-8-9">End-to-end manual test: Gmail account, Proton-bridge account, work-IMAP account — all three providers exercised</label></li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <p><strong>Canonical docs</strong> — keep aligned as you implement.</p>
+  <div class="footer-grid">
+    <div><a href="../README.md">README.md</a> — overview</div>
+    <div><a href="../CONTEXT.md">CONTEXT.md</a> — domain language</div>
+    <div><a href="../AGENTS.md">AGENTS.md</a> — agent instructions</div>
+    <div><a href="./commands.md">commands.md</a> — command reference</div>
+    <div><a href="./adr/">adr/</a> — architecture decisions</div>
+  </div>
+  <p style="margin-top: 24px; font-size: 12px;">Progress persists per-browser in <code>localStorage</code> under <code>mbx-plan-v1</code>. Reset clears all checkboxes.</p>
+</footer>
+
+</div>
+
+<script>
+  const STORAGE_KEY = 'mbx-plan-v1';
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+    catch { return {}; }
+  }
+
+  function save(state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function updateProgress() {
+    const boxes = document.querySelectorAll('.task input[type="checkbox"]');
+    const total = boxes.length;
+    const done = [...boxes].filter(b => b.checked).length;
+    document.getElementById('bar').style.width = total ? (done / total * 100) + '%' : '0%';
+    document.getElementById('count').textContent = `${done} / ${total}`;
+
+    document.querySelectorAll('.phase').forEach(phase => {
+      const phaseBoxes = phase.querySelectorAll('.task input[type="checkbox"]');
+      const phaseDone = [...phaseBoxes].filter(b => b.checked).length;
+      const statusEl = phase.querySelector('.phase-status');
+      statusEl.classList.remove('done', 'in-progress');
+      if (phaseDone === phaseBoxes.length) {
+        statusEl.textContent = 'done';
+        statusEl.classList.add('done');
+      } else if (phaseDone > 0) {
+        statusEl.textContent = `${phaseDone} / ${phaseBoxes.length}`;
+        statusEl.classList.add('in-progress');
+      } else {
+        statusEl.textContent = 'pending';
+      }
+    });
+  }
+
+  function init() {
+    const state = load();
+    document.querySelectorAll('.task input[type="checkbox"]').forEach(box => {
+      if (state[box.id]) {
+        box.checked = true;
+        box.closest('.task').classList.add('done');
+      }
+      box.addEventListener('change', () => {
+        const s = load();
+        if (box.checked) s[box.id] = true; else delete s[box.id];
+        save(s);
+        box.closest('.task').classList.toggle('done', box.checked);
+        updateProgress();
+      });
+    });
+    updateProgress();
+  }
+
+  function reset() {
+    if (!confirm('Clear all checkboxes? This cannot be undone.')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    document.querySelectorAll('.task input[type="checkbox"]').forEach(box => {
+      box.checked = false;
+      box.closest('.task').classList.remove('done');
+    });
+    updateProgress();
+  }
+
+  init();
+</script>
+</body>
+</html>
