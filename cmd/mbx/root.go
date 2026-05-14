@@ -1,12 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/oflabs44/mbx/internal/output"
+	"github.com/oflabs44/mbx/internal/secret"
 )
 
 type GlobalFlags struct {
@@ -53,6 +55,17 @@ func newRootCmd(stdout, stderr io.Writer) (*cobra.Command, *GlobalFlags) {
 	cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return &output.Failure{Code: output.CodeUsageInvalid, Message: err.Error()}
 	})
+
+	// Wire global debug switches to package-level loggers once flag parsing
+	// completes. Runs before any subcommand's RunE.
+	cmd.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
+		if g.Debug {
+			secret.Debug = func(format string, args ...any) {
+				fmt.Fprintf(stderr, "secret: "+format+"\n", args...)
+			}
+		}
+		return nil
+	}
 
 	cmd.AddCommand(
 		newVersionCmd(g, stdout, stderr),

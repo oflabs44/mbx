@@ -2,7 +2,9 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -146,9 +148,18 @@ func newAccountAuthCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 			}
 
 			if err := secret.Write(ctx, authBlock.RefreshToken, token.RefreshToken); err != nil {
+				// The browser flow already burned the user's consent and Google
+				// has issued (and tracked) this refresh token. Dropping it
+				// silently means another consent dance to recover; instead dump
+				// it to a 0600 tempfile so the user can fix write_cmd and pipe
+				// it in manually.
+				rescue := writeRescueToken(name, token.RefreshToken)
 				return output.Errorf(output.CodeAuthRefreshFailed,
 					"persisting refresh token via write_cmd: %s", err.Error()).
-					WithDetails("account", name)
+					WithDetails("account", name).
+					WithDetails("rescue_path", rescue.path).
+					WithDetails("rescue_error", rescue.errMsg).
+					WithDetails("rescue_hint", rescue.hint)
 			}
 
 			data := accountAuthResult{
@@ -161,6 +172,37 @@ func newAccountAuthCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 			}
 			return output.NewWriter(stdout, stderr, g.format()).Success(data, nil)
 		},
+	}
+}
+
+type rescueResult struct {
+	path   string
+	errMsg string
+	hint   string
+}
+
+// writeRescueToken dumps the just-obtained refresh token to a 0600 tempfile
+// in the system temp dir so the user can recover from a write_cmd typo
+// without redoing the browser flow. Returns the path and a copy-pasteable
+// hint; if the tempfile itself fails, errMsg is populated so the structured
+// envelope tells the user the token is gone.
+func writeRescueToken(account, token string) rescueResult {
+	f, err := os.CreateTemp("", fmt.Sprintf("mbx-rescue-%s-*.txt", account))
+	if err != nil {
+		return rescueResult{errMsg: err.Error()}
+	}
+	defer f.Close()
+	if err := f.Chmod(0o600); err != nil {
+		_ = os.Remove(f.Name())
+		return rescueResult{errMsg: err.Error()}
+	}
+	if _, err := f.WriteString(token); err != nil {
+		_ = os.Remove(f.Name())
+		return rescueResult{errMsg: err.Error()}
+	}
+	return rescueResult{
+		path: f.Name(),
+		hint: fmt.Sprintf("fix backend.auth.refresh-token.write_cmd, then: cat %s | sh -c '<your-write-cmd>' && rm %s", f.Name(), f.Name()),
 	}
 }
 

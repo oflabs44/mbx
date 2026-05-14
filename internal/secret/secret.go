@@ -30,6 +30,15 @@ var (
 	ErrKeyringNotFound = errors.New("keyring item not found")
 )
 
+// Debug is invoked once per shell-out from secret commands when the caller
+// has opted into debug logging (`--debug` in cmd/mbx). The default is a
+// no-op; set this var from main once at startup. The format is "secret: ..."
+// printed on the writer the caller chooses (typically stderr). Never logs
+// the secret value itself — only the rendered shell command (which may
+// contain `$(cat)` placeholders), stdin byte count, exit status, and full
+// stderr from the spawned process.
+var Debug func(format string, args ...any) = func(string, ...any) {}
+
 // Mbx uses a single keyring user across all secrets; the service name comes
 // from the user's config (e.g. `keyring = "mbx-gmail-refresh-token"`).
 const keyringUser = "mbx"
@@ -74,11 +83,26 @@ func runCmd(ctx context.Context, cmd string, stdin io.Reader) (string, error) {
 	} else {
 		c = exec.CommandContext(ctx, "sh", "-c", cmd)
 	}
+
+	// Tee stdin so we can count bytes for debug without buffering the whole
+	// secret in memory twice. The counter wrapper is byte-only; the secret
+	// value itself never lands in the log.
+	var stdinBytes int64
+	if stdin != nil {
+		stdin = &countingReader{r: stdin, n: &stdinBytes}
+	}
 	c.Stdin = stdin
+
 	var out, errBuf bytes.Buffer
 	c.Stdout = &out
 	c.Stderr = &errBuf
-	if err := c.Run(); err != nil {
+
+	Debug("run (sh -c): %s", cmd)
+	err := c.Run()
+	Debug("run done: exit=%v stdin_bytes=%d stdout_bytes=%d stderr=%q",
+		exitStatus(err), stdinBytes, out.Len(), strings.TrimSpace(errBuf.String()))
+
+	if err != nil {
 		// Distinguish cancellation/deadline from a genuine command failure so
 		// callers can errors.Is(err, context.DeadlineExceeded) and behave
 		// differently (retry with longer timeout vs surface to user).
@@ -95,4 +119,29 @@ func runCmd(ctx context.Context, cmd string, stdin io.Reader) (string, error) {
 	// newline. Trim exactly one — preserving any embedded newlines a caller
 	// might legitimately want in a multi-line secret.
 	return strings.TrimSuffix(out.String(), "\n"), nil
+}
+
+// countingReader counts bytes read; used so Debug can report stdin size
+// without buffering the secret value.
+type countingReader struct {
+	r io.Reader
+	n *int64
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	*c.n += int64(n)
+	return n, err
+}
+
+// exitStatus turns an exec.Cmd error into a number suitable for logging.
+// nil → 0; *exec.ExitError → its code; anything else → -1 (failed to spawn).
+func exitStatus(err error) int {
+	if err == nil {
+		return 0
+	}
+	if ee, ok := errors.AsType[*exec.ExitError](err); ok {
+		return ee.ExitCode()
+	}
+	return -1
 }
