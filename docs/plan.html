@@ -233,7 +233,7 @@
   <div class="phase-header">
     <span class="phase-id">phase 1</span>
     <h2 class="phase-title">Account lifecycle</h2>
-    <span class="phase-status">pending</span>
+    <span class="phase-status done">done</span>
   </div>
   <div class="phase-body">
     <p class="phase-goal">Configure accounts, run OAuth flows, validate setup. No mail operations yet — but agents can stand up a working config.</p>
@@ -242,12 +242,12 @@
       <div><strong>Unblocks:</strong> phases 2, 3</div>
     </div>
     <ul class="task-list">
-      <li class="task"><input type="checkbox" id="t-1-1"><label for="t-1-1"><code>mbx account list</code> reads config, returns account metadata</label></li>
-      <li class="task"><input type="checkbox" id="t-1-2"><label for="t-1-2"><code>mbx account add &lt;name&gt;</code> appends a commented template block to the config file</label></li>
-      <li class="task"><input type="checkbox" id="t-1-3"><label for="t-1-3">OAuth flow plumbing in <code>internal/account/auth/</code>: <code>golang.org/x/oauth2</code> + local HTTP listener for callback (host/port from config)</label></li>
-      <li class="task"><input type="checkbox" id="t-1-4"><label for="t-1-4"><code>mbx account auth &lt;name&gt;</code>: refuses if <code>refresh-token.write_cmd</code> unset; opens browser; persists via <code>write_cmd</code></label></li>
-      <li class="task"><input type="checkbox" id="t-1-5"><label for="t-1-5"><code>mbx account doctor &lt;name&gt;</code>: config parse, secrets resolve, auth probe, folder list, capability flags (THREAD, IDLE)</label></li>
-      <li class="task"><input type="checkbox" id="t-1-6"><label for="t-1-6"><code>mbx account remove &lt;name&gt;</code> comments out the config block (does not touch external secrets)</label></li>
+      <li class="task"><input type="checkbox" id="t-1-1" checked><label for="t-1-1"><code>mbx account list</code> reads config, returns account metadata</label></li>
+      <li class="task"><input type="checkbox" id="t-1-2" checked><label for="t-1-2"><code>mbx account add &lt;name&gt;</code> appends a commented template block to the config file</label></li>
+      <li class="task"><input type="checkbox" id="t-1-3" checked><label for="t-1-3">OAuth flow plumbing in <code>internal/account/auth/</code>: <code>golang.org/x/oauth2</code> + local HTTP listener for callback (host/port from config)</label></li>
+      <li class="task"><input type="checkbox" id="t-1-4" checked><label for="t-1-4"><code>mbx account auth &lt;name&gt;</code>: refuses if <code>refresh-token.write_cmd</code> unset; opens browser; persists via <code>write_cmd</code></label></li>
+      <li class="task"><input type="checkbox" id="t-1-5" checked><label for="t-1-5"><code>mbx account doctor &lt;name&gt;</code>: config parse, secrets resolve, auth probe, folder list, capability flags (THREAD, IDLE)</label></li>
+      <li class="task"><input type="checkbox" id="t-1-6" checked><label for="t-1-6"><code>mbx account remove &lt;name&gt;</code> comments out the config block (does not touch external secrets)</label></li>
     </ul>
   </div>
 </section>
