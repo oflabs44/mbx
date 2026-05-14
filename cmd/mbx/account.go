@@ -25,6 +25,7 @@ func newAccountCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 		newAccountAddCmd(g, stdout, stderr),
 		newAccountAuthCmd(g, stdout, stderr),
 		newAccountDoctorCmd(g, stdout, stderr),
+		newAccountRemoveCmd(g, stdout, stderr),
 	)
 	return cmd
 }
@@ -175,6 +176,45 @@ func newAccountAuthCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 				data.ExpiresAt = token.Expiry.UTC().Format(time.RFC3339)
 			}
 			return output.NewWriter(stdout, stderr, g.format()).Success(data, nil)
+		},
+	}
+}
+
+type accountRemoveResult struct {
+	Account string `json:"account"`
+	Path    string `json:"path"`
+	Removed bool   `json:"removed"`
+}
+
+func newAccountRemoveCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove <name>",
+		Short: "Comment out the [accounts.<name>] block in the config file",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := args[0]
+			path, err := resolveConfigPath(g)
+			if err != nil {
+				return err
+			}
+
+			alreadyCommented, err := account.RemoveAccount(path, name)
+			if err != nil {
+				if errors.Is(err, account.ErrAccountAbsent) {
+					return output.Errorf(output.CodeConfigUnknownAccount,
+						"account %q not present in %s", name, path).
+						WithDetails("account", name).
+						WithDetails("path", path)
+				}
+				return output.Errorf(output.CodeConfigInvalid,
+					"removing %s: %s", path, err.Error())
+			}
+
+			return output.NewWriter(stdout, stderr, g.format()).Success(accountRemoveResult{
+				Account: name,
+				Path:    path,
+				Removed: !alreadyCommented,
+			}, nil)
 		},
 	}
 }
