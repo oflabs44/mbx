@@ -9,7 +9,8 @@ Before any non-trivial change, read in this order:
 1. [README.md](./README.md) — overview and doc index.
 2. [CONTEXT.md](./CONTEXT.md) — domain language. **Source of truth for terminology.**
 3. [docs/commands.md](./docs/commands.md) — command surface contract. **Source of truth for flags and JSON shapes.**
-4. [docs/adr/](./docs/adr/) — architectural decisions. Skim titles; read in full any ADR touching the area you're changing.
+4. [docs/config.md](./docs/config.md) — config file schema. **Source of truth for `~/.config/mbx/config.toml` shape.**
+5. [docs/adr/](./docs/adr/) — architectural decisions. Skim titles; read in full any ADR touching the area you're changing.
 
 If a change conflicts with one of those, the doc wins. If you believe the doc is wrong, update it in the same change.
 
