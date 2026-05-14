@@ -89,7 +89,7 @@ func newMessageExportCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Comman
 }
 
 func runMessageRead(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer, id mbxid.ID, opt message.ReadOptions) error {
-	_, b, err := openBackendForID(ctx, g, id)
+	cname, _, b, err := openBackendForID(ctx, g, id)
 	if err != nil {
 		return err
 	}
@@ -98,12 +98,12 @@ func runMessageRead(ctx context.Context, g *GlobalFlags, stdout, stderr io.Write
 	if err != nil {
 		return err
 	}
-	msg.Account = id.Account
+	msg.Account = cname
 	return output.NewWriter(stdout, stderr, g.format()).Success(msg, nil)
 }
 
 func runMessageExport(ctx context.Context, g *GlobalFlags, stdout, _ io.Writer, id mbxid.ID) error {
-	_, b, err := openBackendForID(ctx, g, id)
+	_, _, b, err := openBackendForID(ctx, g, id)
 	if err != nil {
 		return err
 	}
@@ -195,7 +195,7 @@ func parseMutateArgs(args []string) ([]mbxid.ID, string, error) {
 }
 
 func runMessageMove(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer, ids []mbxid.ID, dest string) error {
-	acct, b, err := openBackendForID(ctx, g, ids[0])
+	cname, acct, b, err := openBackendForID(ctx, g, ids[0])
 	if err != nil {
 		return err
 	}
@@ -208,11 +208,11 @@ func runMessageMove(ctx context.Context, g *GlobalFlags, stdout, stderr io.Write
 	if err != nil {
 		return err
 	}
-	return emitMutateResult(stdout, stderr, g, ids[0].Account, ids, newIDs, dest)
+	return emitMutateResult(stdout, stderr, g, cname, ids, newIDs, dest)
 }
 
 func runMessageCopy(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer, ids []mbxid.ID, dest string) error {
-	acct, b, err := openBackendForID(ctx, g, ids[0])
+	cname, acct, b, err := openBackendForID(ctx, g, ids[0])
 	if err != nil {
 		return err
 	}
@@ -225,11 +225,11 @@ func runMessageCopy(ctx context.Context, g *GlobalFlags, stdout, stderr io.Write
 	if err != nil {
 		return err
 	}
-	return emitMutateResult(stdout, stderr, g, ids[0].Account, ids, newIDs, dest)
+	return emitMutateResult(stdout, stderr, g, cname, ids, newIDs, dest)
 }
 
 func runMessageDelete(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer, ids []mbxid.ID, permanent bool) error {
-	acct, b, err := openBackendForID(ctx, g, ids[0])
+	cname, acct, b, err := openBackendForID(ctx, g, ids[0])
 	if err != nil {
 		return err
 	}
@@ -241,24 +241,25 @@ func runMessageDelete(ctx context.Context, g *GlobalFlags, stdout, stderr io.Wri
 	if err := message.Delete(ctx, deleter, ids, permanent); err != nil {
 		return err
 	}
-	return emitMutateResult(stdout, stderr, g, ids[0].Account, ids, nil, "")
+	return emitMutateResult(stdout, stderr, g, cname, ids, nil, "")
 }
 
 // openBackendForID resolves the account from an mbx ID and opens the
 // backend. Pulled out so the three message-mutate handlers don't each
-// open-code the same 5-line prologue. Backend is constructed with the
-// canonical account name so emitted mbx IDs use the stable form (ADR-0007).
-// Caller defers closeBackend on b.
-func openBackendForID(ctx context.Context, g *GlobalFlags, id mbxid.ID) (*config.Account, backend, error) {
+// open-code the same 5-line prologue. Returns the canonical account name
+// (ADR-0007) alongside the account and backend so callers can stamp
+// echoed IDs and meta fields with the stable form. Caller defers
+// closeBackend on b.
+func openBackendForID(ctx context.Context, g *GlobalFlags, id mbxid.ID) (string, *config.Account, backend, error) {
 	cname, acct, err := lookupAccountForID(g, id)
 	if err != nil {
-		return nil, nil, err
+		return "", nil, nil, err
 	}
 	b, err := newBackend(ctx, cname, acct)
 	if err != nil {
-		return nil, nil, err
+		return "", nil, nil, err
 	}
-	return acct, b, nil
+	return cname, acct, b, nil
 }
 
 func unsupportedErr(acct *config.Account, verb string) error {
@@ -266,10 +267,34 @@ func unsupportedErr(acct *config.Account, verb string) error {
 		"backend %q does not support %s", acct.Backend.Type, verb)
 }
 
-func emitMutateResult(stdout, stderr io.Writer, g *GlobalFlags, acctName string, ids, newIDs []mbxid.ID, dest string) error {
-	data := mutateResult{IDs: idsToStrings(ids), NewIDs: idsToStrings(newIDs), Dest: dest}
-	meta := envelopeListMeta{AccountsQueried: []string{acctName}}
+func emitMutateResult(stdout, stderr io.Writer, g *GlobalFlags, cname string, ids, newIDs []mbxid.ID, dest string) error {
+	// ids are user-typed (possibly alias-form); newIDs come from the server
+	// (already canonical via the backend's c.Account stamping).
+	data := mutateResult{
+		IDs:    canonicalIDStrings(ids, cname),
+		NewIDs: idsToStrings(newIDs),
+		Dest:   dest,
+	}
+	meta := envelopeListMeta{AccountsQueried: []string{cname}}
 	return output.NewWriter(stdout, stderr, g.format()).Success(data, meta)
+}
+
+// canonicalIDStrings stringifies ids after stamping each one's Account
+// segment with cname. For input IDs reaching an echo verb (envelope flag,
+// message move/copy/delete), this enforces the canonical-on-emit rule of
+// ADR-0007 — the user may have passed an alias-form ID, but the response
+// always carries the canonical form so downstream stored references
+// migrate naturally.
+func canonicalIDStrings(ids []mbxid.ID, cname string) []string {
+	if len(ids) == 0 {
+		return nil
+	}
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		id.Account = cname
+		out[i] = id.String()
+	}
+	return out
 }
 
 func idsToStrings(ids []mbxid.ID) []string {
@@ -564,7 +589,7 @@ func runMessageReply(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writ
 	if err != nil {
 		return output.Errorf(output.CodeUsageInvalid, "%s", err.Error())
 	}
-	return composeAndSend(ctx, stdout, stderr, g, id.Account, rs.sender, spec)
+	return composeAndSend(ctx, stdout, stderr, g, rs.cname, rs.sender, spec)
 }
 
 func runMessageForward(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer, id mbxid.ID, ff *forwardFlags) error {
@@ -594,16 +619,17 @@ func runMessageForward(ctx context.Context, g *GlobalFlags, stdout, stderr io.Wr
 	if err != nil {
 		return output.Errorf(output.CodeUsageInvalid, "%s", err.Error())
 	}
-	return composeAndSend(ctx, stdout, stderr, g, id.Account, rs.sender, spec)
+	return composeAndSend(ctx, stdout, stderr, g, rs.cname, rs.sender, spec)
 }
 
 // replySession bundles what reply/forward need: the source message, the
-// resolved From address, a Sender backend, and a single close for both
-// the read- and send-side backends. Returned by openSourceAndSender so
-// handlers don't juggle five return values.
+// resolved From address, a Sender backend, the canonical account name
+// (ADR-0007) for output stamping, and a single close for both the read-
+// and send-side backends.
 type replySession struct {
 	source message.Message
 	from   string
+	cname  string
 	sender message.Sender
 	close  func()
 }
@@ -613,14 +639,14 @@ type replySession struct {
 // required for threading (Message-ID, In-Reply-To, References) and the
 // body for quoting. We don't mark the source seen — replying isn't reading.
 func openSourceAndSender(ctx context.Context, g *GlobalFlags, id mbxid.ID) (replySession, error) {
-	acct, readB, err := openBackendForID(ctx, g, id)
+	cname, acct, readB, err := openBackendForID(ctx, g, id)
 	if err != nil {
 		return replySession{}, err
 	}
 	if strings.TrimSpace(acct.Email) == "" {
 		closeBackend(readB)
 		return replySession{}, output.Errorf(output.CodeConfigInvalid,
-			"account %q has no `email` field set; required for reply/forward", id.Account)
+			"account %q has no `email` field set; required for reply/forward", cname)
 	}
 	source, err := readB.ReadMessage(ctx, id, message.ReadOptions{
 		IncludeHeaders: []string{"Message-ID", "In-Reply-To", "References"},
@@ -630,9 +656,9 @@ func openSourceAndSender(ctx context.Context, g *GlobalFlags, id mbxid.ID) (repl
 		closeBackend(readB)
 		return replySession{}, err
 	}
-	source.Account = id.Account
+	source.Account = cname
 
-	sender, err := newSendBackend(ctx, id.Account, acct)
+	sender, err := newSendBackend(ctx, cname, acct)
 	if err != nil {
 		closeBackend(readB)
 		return replySession{}, err
@@ -640,6 +666,7 @@ func openSourceAndSender(ctx context.Context, g *GlobalFlags, id mbxid.ID) (repl
 	return replySession{
 		source: source,
 		from:   acct.Email,
+		cname:  cname,
 		sender: sender,
 		close: func() {
 			closeBackend(sender)

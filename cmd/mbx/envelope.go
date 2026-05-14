@@ -47,7 +47,7 @@ func newEnvelopeThreadCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Comma
 }
 
 func runEnvelopeThread(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer, id mbxid.ID) error {
-	acct, b, err := openBackendForID(ctx, g, id)
+	cname, acct, b, err := openBackendForID(ctx, g, id)
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func runEnvelopeThread(ctx context.Context, g *GlobalFlags, stdout, stderr io.Wr
 	if err != nil {
 		return err
 	}
-	meta := envelopeListMeta{AccountsQueried: []string{id.Account}}
+	meta := envelopeListMeta{AccountsQueried: []string{cname}}
 	return output.NewWriter(stdout, stderr, g.format()).Success(thread, meta)
 }
 
@@ -332,7 +332,7 @@ func parseSharedAccountIDs(args []string) ([]mbxid.ID, error) {
 }
 
 func runEnvelopeFlag(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer, ids []mbxid.ID, add, remove []envelope.Flag) error {
-	acct, b, err := openBackendForID(ctx, g, ids[0])
+	cname, acct, b, err := openBackendForID(ctx, g, ids[0])
 	if err != nil {
 		return err
 	}
@@ -345,11 +345,11 @@ func runEnvelopeFlag(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writ
 		return err
 	}
 	data := flagResult{
-		IDs:          idsToStrings(ids),
+		IDs:          canonicalIDStrings(ids, cname),
 		FlagsAdded:   flagsToStrings(add),
 		FlagsRemoved: flagsToStrings(remove),
 	}
-	meta := envelopeListMeta{AccountsQueried: []string{ids[0].Account}}
+	meta := envelopeListMeta{AccountsQueried: []string{cname}}
 	return output.NewWriter(stdout, stderr, g.format()).Success(data, meta)
 }
 
