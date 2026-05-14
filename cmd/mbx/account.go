@@ -3,12 +3,15 @@ package main
 import (
 	"errors"
 	"io"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/oflabs44/mbx/internal/account"
+	"github.com/oflabs44/mbx/internal/account/auth"
 	"github.com/oflabs44/mbx/internal/config"
 	"github.com/oflabs44/mbx/internal/output"
+	"github.com/oflabs44/mbx/internal/secret"
 )
 
 func newAccountCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
@@ -20,6 +23,7 @@ func newAccountCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	cmd.AddCommand(
 		newAccountListCmd(g, stdout, stderr),
 		newAccountAddCmd(g, stdout, stderr),
+		newAccountAuthCmd(g, stdout, stderr),
 	)
 	return cmd
 }
@@ -76,6 +80,87 @@ func newAccountAddCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	}
 	c.Flags().StringVar(&typeFlag, "type", "gmail", "Account type: gmail | imap")
 	return c
+}
+
+type accountAuthResult struct {
+	Account   string   `json:"account"`
+	Email     string   `json:"email"`
+	Scopes    []string `json:"scopes,omitempty"`
+	ExpiresAt string   `json:"expires_at,omitempty"`
+}
+
+func newAccountAuthCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
+	return &cobra.Command{
+		Use:   "auth <name>",
+		Short: "Run the OAuth flow and persist the refresh token via write_cmd",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			name := args[0]
+
+			c, err := loadConfig(g)
+			if err != nil {
+				return err
+			}
+			acct, err := account.Lookup(c, name)
+			if err != nil {
+				return output.Errorf(output.CodeConfigUnknownAccount, "%s", err.Error()).
+					WithDetails("account", name)
+			}
+
+			authBlock := &acct.Backend.Auth
+			if authBlock.Type != config.AuthOAuth2 {
+				return output.Errorf(output.CodeUsageInvalid,
+					"account %q uses %q auth, not oauth2; nothing to authorize", name, authBlock.Type).
+					WithDetails("account", name)
+			}
+			if !authBlock.RefreshToken.HasWriteCmd() {
+				return output.Errorf(output.CodeAuthMissingWriteCmd,
+					"account %q has no backend.auth.refresh-token.write_cmd; cannot persist the rotating token", name).
+					WithDetails("account", name)
+			}
+
+			oauthCfg, err := auth.Config(ctx, authBlock)
+			if err != nil {
+				return output.Errorf(output.CodeConfigInvalid, "building oauth2 config: %s", err.Error())
+			}
+
+			token, err := auth.Authorize(ctx, oauthCfg, auth.AuthorizeOpts{
+				Scheme: authBlock.RedirectScheme,
+				Host:   authBlock.RedirectHost,
+				Port:   authBlock.RedirectPort,
+				PKCE:   authBlock.PKCE,
+			})
+			if err != nil {
+				return output.Errorf(output.CodeAuthRefreshFailed, "oauth flow failed: %s", err.Error())
+			}
+			if token.RefreshToken == "" {
+				// Google issues refresh-tokens only on the first consent with
+				// access_type=offline + prompt=consent. Surface as a hard error so
+				// the user re-runs after fixing the consent URL or revoking the app
+				// from their account.
+				return output.Errorf(output.CodeAuthRefreshFailed,
+					"provider returned no refresh token (ensure offline access + consent prompt are requested)").
+					WithDetails("account", name)
+			}
+
+			if err := secret.Write(ctx, authBlock.RefreshToken, token.RefreshToken); err != nil {
+				return output.Errorf(output.CodeAuthRefreshFailed,
+					"persisting refresh token via write_cmd: %s", err.Error()).
+					WithDetails("account", name)
+			}
+
+			data := accountAuthResult{
+				Account: name,
+				Email:   acct.Email,
+				Scopes:  oauthCfg.Scopes,
+			}
+			if !token.Expiry.IsZero() {
+				data.ExpiresAt = token.Expiry.UTC().Format(time.RFC3339)
+			}
+			return output.NewWriter(stdout, stderr, g.format()).Success(data, nil)
+		},
+	}
 }
 
 func templateFor(t, name string) (string, error) {
