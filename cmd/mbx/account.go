@@ -24,6 +24,7 @@ func newAccountCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 		newAccountListCmd(g, stdout, stderr),
 		newAccountAddCmd(g, stdout, stderr),
 		newAccountAuthCmd(g, stdout, stderr),
+		newAccountDoctorCmd(g, stdout, stderr),
 	)
 	return cmd
 }
@@ -159,6 +160,32 @@ func newAccountAuthCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 				data.ExpiresAt = token.Expiry.UTC().Format(time.RFC3339)
 			}
 			return output.NewWriter(stdout, stderr, g.format()).Success(data, nil)
+		},
+	}
+}
+
+func newAccountDoctorCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
+	return &cobra.Command{
+		Use:   "doctor <name>",
+		Short: "Probe an account: secrets resolve, auth refreshes, connectivity, capabilities",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			name := args[0]
+
+			c, err := loadConfig(g)
+			if err != nil {
+				return err
+			}
+			report, err := account.Doctor(ctx, c, name)
+			if err != nil {
+				if errors.Is(err, config.ErrUnknownAccount) {
+					return output.Errorf(output.CodeConfigUnknownAccount, "%s", err.Error()).
+						WithDetails("account", name)
+				}
+				return output.Errorf(output.CodeGeneric, "%s", err.Error())
+			}
+			return output.NewWriter(stdout, stderr, g.format()).Success(report, nil)
 		},
 	}
 }
