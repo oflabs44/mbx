@@ -191,7 +191,7 @@ Output:
       "to": ["me@company.com"],
       "subject": "Q2 review",
       "date": "2026-05-14T09:33:00Z",
-      "flags": ["unread"],
+      "flags": [],
       "folders": ["INBOX"],
       "snippet": "Hi — wanted to share the deck...",
       "has_attachment": false,

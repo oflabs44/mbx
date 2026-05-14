@@ -257,7 +257,7 @@
   <div class="phase-header">
     <span class="phase-id">phase 2</span>
     <h2 class="phase-title">Read path — Gmail</h2>
-    <span class="phase-status">pending</span>
+    <span class="phase-status done">done</span>
   </div>
   <div class="phase-body">
     <p class="phase-goal">Get a single end-to-end provider working before duplicating effort. Gmail first because the SDK is friendlier and OAuth is already set up.</p>
@@ -266,19 +266,19 @@
       <div><strong>Unblocks:</strong> phase 3 (pattern replication)</div>
     </div>
     <ul class="task-list">
-      <li class="task"><input type="checkbox" id="t-2-1"><label for="t-2-1"><code>internal/provider/gmail/</code> skeleton with auth-aware HTTP client wrapping <code>google.golang.org/api/gmail/v1</code></label></li>
-      <li class="task"><input type="checkbox" id="t-2-2"><label for="t-2-2">Define <code>EnvelopeLister</code> in <code>internal/envelope/</code> (narrow consumer interface)</label></li>
-      <li class="task"><input type="checkbox" id="t-2-3"><label for="t-2-3">Gmail impl of <code>EnvelopeLister</code>: <code>users.messages.list</code> + selective <code>get</code> for envelope fields</label></li>
-      <li class="task"><input type="checkbox" id="t-2-4"><label for="t-2-4"><code>mbx envelope list</code> with filter flags (<code>--unread</code>, <code>--from</code>, <code>--after</code>, <code>--before</code>, <code>--has-attachment</code>, <code>--starred</code>, <code>--folder</code>, <code>--limit</code>, <code>--cursor</code>)</label></li>
-      <li class="task"><input type="checkbox" id="t-2-5"><label for="t-2-5"><code>mbx envelope search "&lt;keywords&gt;"</code> with same flags + <code>--query</code> raw escape hatch</label></li>
-      <li class="task"><input type="checkbox" id="t-2-6"><label for="t-2-6">Define <code>MessageReader</code> in <code>internal/message/</code>; Gmail impl with <code>format=full</code> + MIME parse</label></li>
-      <li class="task"><input type="checkbox" id="t-2-7"><label for="t-2-7">Plain-first body extraction with html→text fallback; <code>body_source</code> field; <code>--html</code> / <code>--raw</code> opt-ins</label></li>
-      <li class="task"><input type="checkbox" id="t-2-8"><label for="t-2-8"><code>mbx message read</code> with <code>--preview</code>, <code>-H</code>, <code>--no-headers</code></label></li>
-      <li class="task"><input type="checkbox" id="t-2-9"><label for="t-2-9"><code>mbx message export &lt;id&gt;</code> dumps raw RFC 5322 to stdout</label></li>
-      <li class="task"><input type="checkbox" id="t-2-10"><label for="t-2-10">Define <code>FolderLister</code>; Gmail impl maps labels→folders correctly (system labels filtered to flags)</label></li>
-      <li class="task"><input type="checkbox" id="t-2-11"><label for="t-2-11"><code>mbx folder list</code></label></li>
-      <li class="task"><input type="checkbox" id="t-2-12"><label for="t-2-12">Define <code>AttachmentLister</code> + <code>AttachmentDownloader</code>; Gmail impls</label></li>
-      <li class="task"><input type="checkbox" id="t-2-13"><label for="t-2-13"><code>mbx attachment list</code>, <code>mbx attachment download</code></label></li>
+      <li class="task"><input type="checkbox" id="t-2-1" checked><label for="t-2-1"><code>internal/provider/gmail/</code> skeleton with auth-aware HTTP client wrapping <code>google.golang.org/api/gmail/v1</code></label></li>
+      <li class="task"><input type="checkbox" id="t-2-2" checked><label for="t-2-2">Define <code>EnvelopeLister</code> in <code>internal/envelope/</code> (narrow consumer interface)</label></li>
+      <li class="task"><input type="checkbox" id="t-2-3" checked><label for="t-2-3">Gmail impl of <code>EnvelopeLister</code>: <code>users.messages.list</code> + selective <code>get</code> for envelope fields</label></li>
+      <li class="task"><input type="checkbox" id="t-2-4" checked><label for="t-2-4"><code>mbx envelope list</code> with filter flags (<code>--unread</code>, <code>--from</code>, <code>--after</code>, <code>--before</code>, <code>--has-attachment</code>, <code>--starred</code>, <code>--folder</code>, <code>--limit</code>, <code>--cursor</code>)</label></li>
+      <li class="task"><input type="checkbox" id="t-2-5" checked><label for="t-2-5"><code>mbx envelope search "&lt;keywords&gt;"</code> with same flags + <code>--query</code> raw escape hatch</label></li>
+      <li class="task"><input type="checkbox" id="t-2-6" checked><label for="t-2-6">Define <code>MessageReader</code> in <code>internal/message/</code>; Gmail impl with <code>format=full</code> + MIME parse</label></li>
+      <li class="task"><input type="checkbox" id="t-2-7" checked><label for="t-2-7">Plain-first body extraction with html→text fallback; <code>body_source</code> field; <code>--html</code> / <code>--raw</code> opt-ins</label></li>
+      <li class="task"><input type="checkbox" id="t-2-8" checked><label for="t-2-8"><code>mbx message read</code> with <code>--preview</code>, <code>-H</code>, <code>--no-headers</code></label></li>
+      <li class="task"><input type="checkbox" id="t-2-9" checked><label for="t-2-9"><code>mbx message export &lt;id&gt;</code> dumps raw RFC 5322 to stdout</label></li>
+      <li class="task"><input type="checkbox" id="t-2-10" checked><label for="t-2-10">Define <code>FolderLister</code>; Gmail impl maps labels→folders correctly (system labels filtered to flags)</label></li>
+      <li class="task"><input type="checkbox" id="t-2-11" checked><label for="t-2-11"><code>mbx folder list</code></label></li>
+      <li class="task"><input type="checkbox" id="t-2-12" checked><label for="t-2-12">Define <code>AttachmentLister</code> + <code>AttachmentDownloader</code>; Gmail impls</label></li>
+      <li class="task"><input type="checkbox" id="t-2-13" checked><label for="t-2-13"><code>mbx attachment list</code>, <code>mbx attachment download</code></label></li>
     </ul>
   </div>
 </section>
