@@ -276,7 +276,7 @@
       "properties": {
         "aliases": {
           "type": "object",
-          "description": "Canonical role to provider-native folder name. `inbox` is required on IMAP accounts; gmail has defaults. Extra user aliases are accepted.",
+          "description": "Canonical role to provider-native folder name. Recognized roles: `inbox`, `sent`, `drafts`, `trash`, `archive`. `inbox` is required on IMAP accounts; gmail has defaults. `archive` is required on IMAP only when `mbx message archive` is invoked (ADR-0009). Extra user aliases are accepted.",
           "additionalProperties": { "type": "string" }
         }
       }

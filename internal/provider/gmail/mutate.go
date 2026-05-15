@@ -14,23 +14,52 @@ import (
 // we mirror that: addLabelIds=[dest], removeLabelIds=[INBOX]. If the
 // source message is not in INBOX, the remove side is a server-side no-op.
 //
+// dest is resolved by name to a Gmail label ID before the modify call.
+// System labels (INBOX, TRASH, etc.) have id == name and resolve as
+// themselves; user-defined labels have opaque ids (Label_NNN), so passing
+// the display name straight to AddLabelIds would 400. Unknown names
+// surface as provider.not_found from labelIDByName.
+//
 // The mbx ID does not change across a Gmail move (the message ID is
 // stable; only labels move), so the returned slice mirrors the input.
 //
 // Multi-ID input is fail-fast; idempotent at the API level (re-applying
 // the same label diff is a no-op), so retry-after-failure is safe.
 func (c *Client) MoveMessages(ctx context.Context, ids []mbxid.ID, dest string) ([]mbxid.ID, error) {
+	destID, err := c.labelIDByName(ctx, dest)
+	if err != nil {
+		return nil, err
+	}
+
 	return ids, c.modifyAll(ctx, ids, &gmailv1.ModifyMessageRequest{
-		AddLabelIds:    []string{dest},
+		AddLabelIds:    []string{destID},
 		RemoveLabelIds: []string{"INBOX"},
 	})
 }
 
 // CopyMessages satisfies message.Copier. For Gmail this is "add the dest
 // label" — the message still exists once but is visible in two folders.
-// The mbx ID is unchanged; we return the input ids verbatim.
+// The mbx ID is unchanged; we return the input ids verbatim. dest is
+// resolved by name to a label ID; see MoveMessages for the rationale.
 func (c *Client) CopyMessages(ctx context.Context, ids []mbxid.ID, dest string) ([]mbxid.ID, error) {
-	return ids, c.modifyAll(ctx, ids, &gmailv1.ModifyMessageRequest{AddLabelIds: []string{dest}})
+	destID, err := c.labelIDByName(ctx, dest)
+	if err != nil {
+		return nil, err
+	}
+
+	return ids, c.modifyAll(ctx, ids, &gmailv1.ModifyMessageRequest{AddLabelIds: []string{destID}})
+}
+
+// ArchiveMessages satisfies message.Archiver. On Gmail, "archive" is
+// the absence of INBOX — no destination folder is involved, so the
+// returned dest is empty. The mbx ID is unchanged. If the message is
+// not in INBOX, the modify is a server-side no-op.
+//
+// See ADR-0009 for the cross-provider rationale.
+func (c *Client) ArchiveMessages(ctx context.Context, ids []mbxid.ID) ([]mbxid.ID, string, error) {
+	return ids, "", c.modifyAll(ctx, ids, &gmailv1.ModifyMessageRequest{
+		RemoveLabelIds: []string{"INBOX"},
+	})
 }
 
 // DeleteMessages satisfies message.Deleter. Default routes through

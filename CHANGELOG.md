@@ -10,6 +10,25 @@ section.
 
 ## [Unreleased]
 
+### Added
+- `mbx message archive <id>...` verb. On Gmail removes the `INBOX` label;
+  on IMAP moves to `folder.aliases.archive` (`config.invalid` if unset).
+  `archive` joins `inbox`, `sent`, `drafts`, `trash` as a canonical folder
+  role. See [ADR-0009](./docs/adr/0009-archive-verb-and-canonical-role.md).
+
+### Fixed
+- `mbx message move` and `message copy` on Gmail now accept user-defined
+  label names (e.g. `Newsletters`). Previously only Gmail system labels
+  (`TRASH`, `SPAM`, …) worked; user labels failed with
+  `gmail (400): Invalid label`. mbx now resolves the display name to the
+  opaque label id before the modify call (issue #1). Unknown destinations
+  surface as `provider.not_found` with `details.name`.
+
+### Documentation
+- `docs/commands.md` no longer advertises a non-existent Gmail "Archive"
+  destination for `message move`; the example points at `mbx message
+  archive` instead.
+
 ## [0.1.1]
 
 ### Added

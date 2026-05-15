@@ -31,8 +31,16 @@ type Deleter interface {
 	DeleteMessages(ctx context.Context, ids []mbxid.ID, permanent bool) error
 }
 
-// Move, Copy, and Delete are the domain entry points. Currently thin
-// pass-throughs; kept for parity with the read-path verbs so future
+// Archiver is the narrow consumer interface for `message archive`. The
+// returned dest is the resolved archive folder where it exists (IMAP)
+// and empty where it doesn't (Gmail, which archives by removing INBOX
+// rather than moving to a folder). See ADR-0009.
+type Archiver interface {
+	ArchiveMessages(ctx context.Context, ids []mbxid.ID) (newIDs []mbxid.ID, dest string, err error)
+}
+
+// Move, Copy, Delete, and Archive are the domain entry points. Currently
+// thin pass-throughs; kept for parity with the read-path verbs so future
 // cross-backend bounds (per-call timeouts, batch caps) land in one place.
 func Move(ctx context.Context, m Mover, ids []mbxid.ID, dest string) ([]mbxid.ID, error) {
 	return m.MoveMessages(ctx, ids, dest)
@@ -44,4 +52,8 @@ func Copy(ctx context.Context, c Copier, ids []mbxid.ID, dest string) ([]mbxid.I
 
 func Delete(ctx context.Context, d Deleter, ids []mbxid.ID, permanent bool) error {
 	return d.DeleteMessages(ctx, ids, permanent)
+}
+
+func Archive(ctx context.Context, a Archiver, ids []mbxid.ID) (newIDs []mbxid.ID, dest string, err error) {
+	return a.ArchiveMessages(ctx, ids)
 }

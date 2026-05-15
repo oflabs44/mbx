@@ -108,11 +108,20 @@ func (c *Client) labelIDByName(ctx context.Context, name string) (string, error)
 	if err != nil {
 		return "", mapErr(err)
 	}
-	for _, l := range resp.Labels {
+
+	return resolveLabelID(resp.Labels, name)
+}
+
+// resolveLabelID is the pure lookup behind labelIDByName. Split out so
+// the matching rule (exact-name, system-labels-resolve-as-themselves)
+// can be exercised without standing up a Gmail service.
+func resolveLabelID(labels []*gmailv1.Label, name string) (string, error) {
+	for _, l := range labels {
 		if l.Name == name {
 			return l.Id, nil
 		}
 	}
+
 	return "", output.Errorf(output.CodeProviderNotFound,
 		"gmail: label %q not found", name).WithDetails("name", name)
 }

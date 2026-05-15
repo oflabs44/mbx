@@ -501,15 +501,15 @@ Success shape mirrors `send`.
 
 ### `mbx message move <id>... <folder>`
 
-Move one or more messages to a destination folder. All IDs must share an account.
+Move one or more messages to a destination folder. All IDs must share an account. The destination must be a folder that `mbx folder list` returns for the same account; unknown destinations surface as `provider.not_found`.
 
 ```bash
-mbx message move gmail:work:18f3... "Archive"
+mbx message move gmail:work:18f3... "Newsletters"
 mbx message move imap:work:INBOX:1:42 imap:work:INBOX:1:43 "Archive"
 ```
 
 **Provider behaviour:**
-- Gmail: adds the dest label and removes `INBOX`. The mbx ID is unchanged (Gmail messages are stable across label changes). If the source isn't in `INBOX`, the remove is a server-side no-op.
+- Gmail: the destination is a user-defined or system label (`SPAM`, `TRASH`, …). mbx resolves the display name (what `folder list` emits) to Gmail's opaque label id before the call, then adds the dest label and removes `INBOX`. The mbx ID is unchanged (Gmail messages are stable across label changes). If the source isn't in `INBOX`, the remove is a server-side no-op. Note: Gmail has no `Archive` label — use [`mbx message archive`](#mbx-message-archive-id) for the "remove from INBOX, add nothing" flow.
 - IMAP: uses the server's `MOVE` extension when present; falls back to `COPY`+`STORE`+`EXPUNGE` automatically. New IDs are emitted from the server's `COPYUID` response (requires `UIDPLUS` or IMAP4rev2); on servers without that, `new_ids` is empty and the caller must re-list to address the messages.
 
 Success shape:
@@ -556,6 +556,34 @@ mbx message delete imap:work:INBOX:1:42 --permanent          # STORE \Deleted + 
 - `--permanent` IMAP: if `STORE \Deleted` succeeds but `EXPUNGE` fails, messages remain `\Deleted`-flagged but visible in the source folder. Re-running `--permanent` completes the operation.
 
 Success shape mirrors `move`/`copy` but omits `new_ids` and `dest`.
+
+### `mbx message archive <id>...`
+
+Archive one or more messages. All IDs must share an account. See [ADR-0009](./adr/0009-archive-verb-and-canonical-role.md) for the cross-provider rationale.
+
+```bash
+mbx message archive gmail:work:18f3...
+mbx message archive imap:work:INBOX:1:42 imap:work:INBOX:1:43
+```
+
+**Provider behaviour:**
+- Gmail: removes the `INBOX` label (no destination folder; no `folder.aliases.archive` lookup). The mbx ID is unchanged. If the message isn't in `INBOX`, the modify is a server-side no-op. `dest` is omitted from the response.
+- IMAP: `MOVE` to `folder.aliases.archive`. `config.invalid` (exit 40) if the alias is unset for the account — mbx never picks an archive folder on the user's behalf. `dest` carries the resolved alias; `new_ids` follows the same `UIDPLUS` rules as `move`.
+
+Multi-ID input is **fail-fast**. The Gmail diff is idempotent; the IMAP MOVE is not (re-running after partial failure 404s the already-moved ids — re-list to recover).
+
+Success shape mirrors `move`/`copy`; on Gmail `dest` is omitted:
+
+```json
+{
+  "v": 1,
+  "data": {
+    "ids": ["gmail:work:18f3..."],
+    "new_ids": ["gmail:work:18f3..."]
+  },
+  "meta": { "accounts_queried": ["work"] }
+}
+```
 
 ---
 

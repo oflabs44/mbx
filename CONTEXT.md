@@ -37,7 +37,7 @@ A container that an **Envelope** belongs to. An Envelope can belong to one or mo
 _Avoid_: mailbox, label, directory.
 
 **Folder Alias**:
-User-supplied mapping from a canonical mbx folder role (`inbox`, `sent`, `drafts`, `trash`, or any custom alias name) to the provider's actual folder name. Configured under `folder.aliases.*`. Used by mbx commands that refer to a canonical role — e.g., `message.send.save-copy` writes to whatever folder `folder.aliases.sent` resolves to. Required for `imap` accounts (`folder.aliases.inbox` at minimum); optional for `gmail` (mbx provides defaults).
+User-supplied mapping from a canonical mbx folder role (`inbox`, `sent`, `drafts`, `trash`, `archive`, or any custom alias name) to the provider's actual folder name. Configured under `folder.aliases.*`. Used by mbx commands that refer to a canonical role — e.g., `message.send.save-copy` writes to whatever folder `folder.aliases.sent` resolves to, and `mbx message archive` on IMAP moves to `folder.aliases.archive`. Required for `imap` accounts (`folder.aliases.inbox` at minimum; `folder.aliases.archive` at command time if `message archive` is used — see [ADR-0009](./docs/adr/0009-archive-verb-and-canonical-role.md)); optional for `gmail` (mbx provides defaults; Gmail does not consume `archive`).
 _Avoid_: alias, mapping, folder name.
 
 **Label** (Gmail-only, not in mbx normalized output):

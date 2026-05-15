@@ -144,12 +144,38 @@ func (c *Client) permanentDeleteGroup(group []mbxid.ID) error {
 // declare what "trash" means for their server: "Trash", "[Gmail]/Trash",
 // "Deleted Items", …).
 func (c *Client) resolveTrashFolder() (string, error) {
-	if c.Cfg.Folder == nil || c.Cfg.Folder.Aliases["trash"] == "" {
-		return "", output.Errorf(output.CodeConfigInvalid,
-			"imap: folder.aliases.trash is unset for account %q; required for `message delete` without --permanent",
-			c.Account).WithDetails("account", c.Account)
+	return c.resolveRoleFolder("trash", "`message delete` without --permanent")
+}
+
+// ArchiveMessages satisfies message.Archiver. IMAP archives by MOVE-ing
+// to folder.aliases.archive; if unset, config.invalid mirrors the trash
+// rule (mbx never picks an archive folder on the user's behalf).
+//
+// The returned dest is the resolved archive folder (callers surface it
+// in the JSON envelope). See ADR-0009.
+func (c *Client) ArchiveMessages(ctx context.Context, ids []mbxid.ID) ([]mbxid.ID, string, error) {
+	archive, err := c.resolveRoleFolder("archive", "`message archive`")
+	if err != nil {
+		return nil, "", err
 	}
-	return c.Cfg.Folder.Aliases["trash"], nil
+	newIDs, err := c.MoveMessages(ctx, ids, archive)
+
+	return newIDs, archive, err
+}
+
+// resolveRoleFolder reads a canonical folder role from
+// folder.aliases.<role>. Absent → config.invalid with a message naming
+// the verb that needs it. Shared between the trash and archive rules so
+// the diagnostic stays uniform.
+func (c *Client) resolveRoleFolder(role, verb string) (string, error) {
+	if c.Cfg.Folder == nil || c.Cfg.Folder.Aliases[role] == "" {
+		return "", output.Errorf(output.CodeConfigInvalid,
+			"imap: folder.aliases.%s is unset for account %q; required for %s",
+			role, c.Account, verb,
+		).WithDetails("account", c.Account)
+	}
+
+	return c.Cfg.Folder.Aliases[role], nil
 }
 
 // buildUIDSet collects every id's UID into a single set. Caller is

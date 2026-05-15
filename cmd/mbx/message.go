@@ -28,6 +28,7 @@ func newMessageCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 		newMessageMoveCmd(g, stdout, stderr),
 		newMessageCopyCmd(g, stdout, stderr),
 		newMessageDeleteCmd(g, stdout, stderr),
+		newMessageArchiveCmd(g, stdout, stderr),
 		newMessageSendCmd(g, stdout, stderr),
 		newMessageReplyCmd(g, stdout, stderr),
 		newMessageForwardCmd(g, stdout, stderr),
@@ -135,7 +136,7 @@ func newMessageMoveCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 	c := &cobra.Command{
 		Use:   "move <id>... <folder>",
 		Short: "Move one or more messages to a destination folder",
-		Example: `  mbx message move gmail:work:18f3... Archive
+		Example: `  mbx message move gmail:work:18f3... Newsletters
   mbx message move imap:work:INBOX:1:42 imap:work:INBOX:1:43 Archive`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -161,6 +162,27 @@ func newMessageCopyCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 				return err
 			}
 			return runMessageCopy(cmd.Context(), g, stdout, stderr, ids, dest)
+		},
+	}
+	return c
+}
+
+func newMessageArchiveCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
+	c := &cobra.Command{
+		Use:   "archive <id>...",
+		Short: "Archive one or more messages",
+		Long: "Gmail: removes the INBOX label. IMAP: moves to folder.aliases.archive " +
+			"(config.invalid if unset). See ADR-0009.",
+		Example: `  mbx message archive gmail:work:18f3...
+  mbx message archive imap:work:INBOX:1:42 imap:work:INBOX:1:43`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ids, err := parseSharedAccountIDs(args)
+			if err != nil {
+				return err
+			}
+
+			return runMessageArchive(cmd.Context(), g, stdout, stderr, ids)
 		},
 	}
 	return c
@@ -235,6 +257,25 @@ func runMessageCopy(ctx context.Context, g *GlobalFlags, stdout, stderr io.Write
 	if err != nil {
 		return err
 	}
+	return emitMutateResult(stdout, stderr, g, cname, ids, newIDs, dest)
+}
+
+func runMessageArchive(ctx context.Context, g *GlobalFlags, stdout, stderr io.Writer, ids []mbxid.ID) error {
+	cname, acct, b, err := openBackendForID(ctx, g, ids[0])
+	if err != nil {
+		return err
+	}
+	defer closeBackend(b)
+	archiver, ok := b.(message.Archiver)
+	if !ok {
+		return unsupportedErr(acct, "archive")
+	}
+	newIDs, dest, err := message.Archive(ctx, archiver, ids)
+	if err != nil {
+		return err
+	}
+	cacheInvalidateAfterMutation(ctx, g, stderr, ids, cname)
+
 	return emitMutateResult(stdout, stderr, g, cname, ids, newIDs, dest)
 }
 

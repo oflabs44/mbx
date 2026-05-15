@@ -134,21 +134,23 @@ backend.thread_window = 1000   # default; bump if a folder routinely holds long 
 
 ## Folder aliases
 
-mbx commands refer to folders by canonical roles (`inbox`, `sent`, `drafts`, `trash`) but each provider names its folders differently. `folder.aliases.*` is the mapping.
+mbx commands refer to folders by canonical roles (`inbox`, `sent`, `drafts`, `trash`, `archive`) but each provider names its folders differently. `folder.aliases.*` is the mapping.
 
 ```toml
-folder.aliases.inbox  = "INBOX"
-folder.aliases.sent   = "Sent"
-folder.aliases.drafts = "Drafts"
-folder.aliases.trash  = "Trash"
+folder.aliases.inbox   = "INBOX"
+folder.aliases.sent    = "Sent"
+folder.aliases.drafts  = "Drafts"
+folder.aliases.trash   = "Trash"
+folder.aliases.archive = "Archive"     # IMAP only; required if `mbx message archive` is used (ADR-0009)
 
 # Extra user aliases are accepted:
 folder.aliases.archive2024 = "Archives/2024"
 ```
 
 - `folder.aliases.inbox` is **required** for `imap` backends.
-- For `gmail` backends, folder.aliases is optional — mbx defaults map `inbox`→`INBOX`, `sent`→`[Gmail]/Sent Mail`, `drafts`→`[Gmail]/Drafts`, `trash`→`[Gmail]/Trash`.
-- Aliases consumed by mbx today: `inbox` (envelope-list default). The rest are accepted now and consumed as Phase 4 (`message.send.save-copy`) and Phase 5 (threading) land.
+- `folder.aliases.archive` is required at command time for `imap` accounts that invoke `mbx message archive`; absent → `config.invalid` (exit 40). Same shape as the existing `trash` rule.
+- For `gmail` backends, folder.aliases is optional — mbx defaults map `inbox`→`INBOX`, `sent`→`[Gmail]/Sent Mail`, `drafts`→`[Gmail]/Drafts`, `trash`→`[Gmail]/Trash`. `archive` is **never** read on Gmail — `mbx message archive` removes the `INBOX` label rather than moving to a folder.
+- Aliases consumed by mbx today: `inbox` (envelope-list default), `trash` (`message delete` without `--permanent` on IMAP), `archive` (`message archive` on IMAP). The rest are accepted now and consumed as Phase 4 (`message.send.save-copy`) and Phase 5 (threading) land.
 
 ## Secrets
 
