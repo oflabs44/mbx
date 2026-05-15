@@ -101,7 +101,8 @@ func (c *Client) authenticate(ctx context.Context) error {
 			return fmt.Errorf("imap: resolving password: %w", err)
 		}
 		if err := c.c.Login(c.Cfg.Backend.Login, password).Wait(); err != nil {
-			return fmt.Errorf("imap: LOGIN failed: %w", err)
+			return output.Errorf(output.CodeAuthInvalid,
+				"imap: LOGIN rejected for %q: %s", c.Cfg.Backend.Login, err.Error())
 		}
 		return nil
 	case config.AuthOAuth2:
@@ -113,7 +114,11 @@ func (c *Client) authenticate(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("imap: obtaining oauth2 access token: %w", err)
 		}
-		return c.c.Authenticate(auth.NewXOAUTH2(c.Cfg.Backend.Login, tok.AccessToken))
+		if err := c.c.Authenticate(auth.NewXOAUTH2(c.Cfg.Backend.Login, tok.AccessToken)); err != nil {
+			return output.Errorf(output.CodeAuthInvalid,
+				"imap: XOAUTH2 rejected for %q: %s", c.Cfg.Backend.Login, err.Error())
+		}
+		return nil
 	default:
 		return fmt.Errorf("imap: unsupported auth.type %q", a.Type)
 	}

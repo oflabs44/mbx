@@ -52,16 +52,28 @@ Error (stderr, non-zero exit):
 
 ### Exit codes
 
-| Code | Meaning |
-|---|---|
-| `0` | Success |
-| `1` | Generic error |
-| `2` | Invalid usage / bad flags (`usage.invalid`, `input.missing_flag`, `input.ambiguous_body`) |
-| `10–19` | Auth (`10` refresh failed, `11` missing write_cmd, `12` invalid credentials, ...) |
-| `20–29` | Provider (`20` rate limited, `21` not found, `22` ID invalidated, `23` network timeout, `24` capability unsupported, ...) |
-| `30–39` | Cache (`30` unavailable, `31` schema mismatch, ...) |
-| `40–49` | Config (`40` invalid TOML, `41` unknown account, ...) |
-| `50–59` | Fanout (`50` all-accounts-failed, ...) |
+Each `error.code` value is stable across releases; `message` is human-facing and may evolve. The class is the leading prefix (`auth.`, `provider.`, `cache.`, `config.`, `fanout.`); within a class, each code has a fixed exit number.
+
+| Exit | `code` | When |
+|---|---|---|
+| `0` | _none_ | Success. |
+| `1` | `generic` | Fallback for anything unmapped (treat as a bug — file an issue). |
+| `2` | `usage.invalid` | Bad flag combination, malformed mbx ID, unparseable date. |
+| `2` | `input.missing_flag` | Required flag absent (`-a` without an ID, `--to` on send, `--add`/`--remove` on flag). |
+| `2` | `input.ambiguous_body` | More than one of `--body` / `--body-file` / `--body-stdin`. |
+| `10` | `auth.refresh_failed` | OAuth flow failed, refresh token rejected by provider, or write_cmd persistence failed. |
+| `11` | `auth.missing_write_cmd` | `account auth` refused: OAuth refresh-token block lacks `write_cmd`. |
+| `12` | `auth.invalid_credentials` | IMAP `LOGIN` / SMTP `AUTH` rejected the supplied password or OAuth bearer. |
+| `20` | `provider.rate_limited` | Gmail quota or 429; IMAP/SMTP equivalent. |
+| `21` | `provider.not_found` | Message, folder, or attachment doesn't exist on the server. |
+| `22` | `provider.id_invalidated` | IMAP UIDVALIDITY mismatch — the ID was issued against an older UID space. |
+| `23` | `provider.network_timeout` | 5xx upstream, dial timeout, TLS handshake failure. |
+| `24` | `provider.unsupported` | Backend doesn't implement the requested verb (e.g. Gmail flag `answered`, IMAP without `THREAD`). |
+| `30` | `cache.unavailable` | Cache file couldn't be opened, queried, or written (disk, permissions, sqlite-level error). |
+| `31` | `cache.schema_mismatch` | On-disk `schema_meta.v` doesn't match the binary's expected version. Recover with `mbx cache clear && mbx cache sync`. |
+| `40` | `config.invalid` | TOML parse failure, missing required field, unknown field, or value outside the allowed vocabulary (encryption.type, auth.type, etc.). |
+| `41` | `config.unknown_account` | `-a <name>` (or the account encoded in an mbx ID) is not in the config (after alias resolution). |
+| `50` | `fanout.all_failed` | Every account in a multi-`-a` fanout failed. Per-account failures are under `details.errors`. |
 
 ---
 

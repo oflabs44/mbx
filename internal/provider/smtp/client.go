@@ -20,6 +20,7 @@ import (
 	"github.com/oflabs44/mbx/internal/account/auth"
 	"github.com/oflabs44/mbx/internal/config"
 	"github.com/oflabs44/mbx/internal/message"
+	"github.com/oflabs44/mbx/internal/output"
 	"github.com/oflabs44/mbx/internal/secret"
 )
 
@@ -107,7 +108,8 @@ func (c *Client) authenticate(ctx context.Context) error {
 		}
 		mech := sasl.NewPlainClient("", login, password)
 		if err := c.c.Auth(mech); err != nil {
-			return fmt.Errorf("smtp: AUTH PLAIN failed: %w", err)
+			return output.Errorf(output.CodeAuthInvalid,
+				"smtp: AUTH PLAIN rejected for %q: %s", login, err.Error())
 		}
 		return nil
 	case config.AuthOAuth2:
@@ -119,7 +121,11 @@ func (c *Client) authenticate(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("smtp: obtaining oauth2 access token: %w", err)
 		}
-		return c.c.Auth(auth.NewXOAUTH2(login, tok.AccessToken))
+		if err := c.c.Auth(auth.NewXOAUTH2(login, tok.AccessToken)); err != nil {
+			return output.Errorf(output.CodeAuthInvalid,
+				"smtp: XOAUTH2 rejected for %q: %s", login, err.Error())
+		}
+		return nil
 	default:
 		return fmt.Errorf("smtp: unsupported auth.type %q", a.Type)
 	}
