@@ -29,9 +29,10 @@ func newAttachmentCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 
 func newAttachmentListCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	return &cobra.Command{
-		Use:   "list <message-id>",
-		Short: "List attachments on a message without downloading",
-		Args:  cobra.ExactArgs(1),
+		Use:     "list <message-id>",
+		Short:   "List attachments on a message without downloading",
+		Example: `  mbx attachment list gmail:work:18f3...`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			msgID, err := mbxid.Parse(args[0])
 			if err != nil {
@@ -46,8 +47,10 @@ func newAttachmentDownloadCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.C
 	var outPath string
 	c := &cobra.Command{
 		Use:   "download <attachment-id>",
-		Short: "Download an attachment to disk (or to stdout with -o -)",
-		Args:  cobra.ExactArgs(1),
+		Short: "Download an attachment to disk (or to stdout with --out -)",
+		Example: `  mbx attachment download gmail:work:18f3...:att-0 --out ~/Downloads/
+  mbx attachment download gmail:work:18f3...:att-0 --out - | less`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			msgID, index, err := attachment.SplitID(args[0])
 			if err != nil {

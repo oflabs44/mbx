@@ -32,9 +32,10 @@ func newEnvelopeCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 
 func newEnvelopeThreadCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	c := &cobra.Command{
-		Use:   "thread <id>",
-		Short: "Return the thread containing the given envelope",
-		Args:  cobra.ExactArgs(1),
+		Use:     "thread <id>",
+		Short:   "Return the thread containing the given envelope",
+		Example: `  mbx envelope thread gmail:work:18f3c2a...`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := mbxid.Parse(args[0])
 			if err != nil {
@@ -154,7 +155,10 @@ func newEnvelopeListCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command
 	c := &cobra.Command{
 		Use:   "list",
 		Short: "List envelopes from one or more accounts",
-		Args:  cobra.NoArgs,
+		Example: `  mbx envelope list -a work --unread --limit 20
+  mbx envelope list -a work,gmail-personal --folder INBOX
+  mbx envelope list -a work --from cfo@company.com --after 2026-01-01`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			q, err := ef.toListQuery(cmd)
 			if err != nil {
@@ -172,7 +176,9 @@ func newEnvelopeSearchCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Comma
 	c := &cobra.Command{
 		Use:   "search <keywords>",
 		Short: "Cross-folder keyword search",
-		Args:  cobra.ExactArgs(1),
+		Example: `  mbx envelope search -a work "invoice quarterly"
+  mbx envelope search -a work,gmail-personal "shipping notification"`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			q, err := ef.toListQuery(cmd)
 			if err != nil {
@@ -253,6 +259,8 @@ func newEnvelopeFlagCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command
 		Long: "Apply a flag delta to one or more envelopes. Vocabulary: " +
 			"seen, flagged, answered, draft, deleted. Gmail supports only " +
 			"seen and flagged via this verb; IMAP supports the full set.",
+		Example: `  mbx envelope flag gmail:work:18f3... --add seen
+  mbx envelope flag imap:work:INBOX:1:42 --add flagged --remove seen`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			add, err := parseFlagList(addRaw, "--add")

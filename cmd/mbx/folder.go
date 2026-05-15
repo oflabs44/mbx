@@ -64,9 +64,10 @@ type folderMutateResult struct {
 
 func newFolderAddCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	return &cobra.Command{
-		Use:   "add <name>",
-		Short: "Create a new folder (Gmail: user label)",
-		Args:  cobra.ExactArgs(1),
+		Use:     "add <name>",
+		Short:   "Create a new folder (Gmail: user label)",
+		Example: `  mbx folder add -a work "Project Alpha"`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runFolderMutation(cmd.Context(), g, stdout, stderr, "add", args[0], func(ctx context.Context, b backend, acctName string) error {
 				adder, ok := b.(folder.Adder)
@@ -84,7 +85,9 @@ func newFolderDeleteCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command
 	c := &cobra.Command{
 		Use:   "delete <name>",
 		Short: "Delete a folder. Non-empty IMAP mailboxes refuse without --force.",
-		Args:  cobra.ExactArgs(1),
+		Example: `  mbx folder delete -a work "Project Alpha"
+  mbx folder delete -a work "Old Stuff" --force`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runFolderMutation(cmd.Context(), g, stdout, stderr, "delete", args[0], func(ctx context.Context, b backend, acctName string) error {
 				deleter, ok := b.(folder.Deleter)
@@ -101,9 +104,10 @@ func newFolderDeleteCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command
 
 func newFolderExpungeCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	return &cobra.Command{
-		Use:   "expunge <name>",
-		Short: "Permanently remove messages already flagged \\Deleted (IMAP-only; no-op on Gmail).",
-		Args:  cobra.ExactArgs(1),
+		Use:     "expunge <name>",
+		Short:   "Permanently remove messages already flagged \\Deleted (IMAP-only; no-op on Gmail).",
+		Example: `  mbx folder expunge -a work INBOX`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runFolderMutation(cmd.Context(), g, stdout, stderr, "expunge", args[0], func(ctx context.Context, b backend, acctName string) error {
 				expunger, ok := b.(folder.Expunger)
@@ -119,9 +123,10 @@ func newFolderExpungeCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Comman
 func newFolderPurgeCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	var yes bool
 	c := &cobra.Command{
-		Use:   "purge <name>",
-		Short: "Delete every message in the folder. Irreversible; requires --yes.",
-		Args:  cobra.ExactArgs(1),
+		Use:     "purge <name>",
+		Short:   "Delete every message in the folder. Irreversible; requires --yes.",
+		Example: `  mbx folder purge -a work "Project Alpha" --yes`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !yes {
 				return output.Errorf(output.CodeInputMissingFlag,

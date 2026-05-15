@@ -46,7 +46,10 @@ func newMessageReadCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 	c := &cobra.Command{
 		Use:   "read <id>",
 		Short: "Read a message by mbx ID",
-		Args:  cobra.ExactArgs(1),
+		Example: `  mbx message read gmail:work:18f3...
+  mbx message read gmail:work:18f3... --preview
+  mbx message read gmail:work:18f3... --html -H Message-ID`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if htmlBody && raw {
 				return output.Errorf(output.CodeUsageInvalid, "--html and --raw are mutually exclusive")
@@ -75,9 +78,10 @@ func newMessageReadCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 
 func newMessageExportCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	return &cobra.Command{
-		Use:   "export <id>",
-		Short: "Dump raw RFC 5322 bytes to stdout (no JSON envelope)",
-		Args:  cobra.ExactArgs(1),
+		Use:     "export <id>",
+		Short:   "Dump raw RFC 5322 bytes to stdout (no JSON envelope)",
+		Example: `  mbx message export gmail:work:18f3... > saved.eml`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := mbxid.Parse(args[0])
 			if err != nil {
@@ -131,7 +135,9 @@ func newMessageMoveCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 	c := &cobra.Command{
 		Use:   "move <id>... <folder>",
 		Short: "Move one or more messages to a destination folder",
-		Args:  cobra.MinimumNArgs(2),
+		Example: `  mbx message move gmail:work:18f3... Archive
+  mbx message move imap:work:INBOX:1:42 imap:work:INBOX:1:43 Archive`,
+		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ids, dest, err := parseMutateArgs(args)
 			if err != nil {
@@ -145,9 +151,10 @@ func newMessageMoveCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 
 func newMessageCopyCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	c := &cobra.Command{
-		Use:   "copy <id>... <folder>",
-		Short: "Copy one or more messages to a destination folder",
-		Args:  cobra.MinimumNArgs(2),
+		Use:     "copy <id>... <folder>",
+		Short:   "Copy one or more messages to a destination folder",
+		Example: `  mbx message copy gmail:work:18f3... "Saved"`,
+		Args:    cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ids, dest, err := parseMutateArgs(args)
 			if err != nil {
@@ -166,6 +173,8 @@ func newMessageDeleteCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Comman
 		Short: "Delete one or more messages (default: move to trash)",
 		Long: "Default behaviour moves messages to the account's trash folder. " +
 			"--permanent bypasses trash and hard-deletes (irreversible).",
+		Example: `  mbx message delete gmail:work:18f3...
+  mbx message delete imap:work:INBOX:1:42 --permanent`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ids, err := parseSharedAccountIDs(args)
@@ -347,7 +356,9 @@ func newMessageSendCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 	c := &cobra.Command{
 		Use:   "send",
 		Short: "Compose and send a message",
-		Args:  cobra.NoArgs,
+		Example: `  mbx message send -a work --to alex@x.com --subject "Status" --body "Up 4.3%."
+  mbx message send -a work --to a@x --cc b@y --subject "Notes" --body-stdin <<<"..."`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runMessageSend(cmd.Context(), g, stdout, stderr, sf)
 		},
@@ -530,7 +541,9 @@ func newMessageReplyCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command
 	c := &cobra.Command{
 		Use:   "reply <id>",
 		Short: "Reply to a message; To/References/In-Reply-To are derived from the source",
-		Args:  cobra.ExactArgs(1),
+		Example: `  mbx message reply gmail:work:18f3... --body "Acknowledged."
+  mbx message reply gmail:work:18f3... --all --quote --body-stdin <<<"..."`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := mbxid.Parse(args[0])
 			if err != nil {
@@ -549,9 +562,10 @@ func newMessageReplyCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command
 func newMessageForwardCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	ff := &forwardFlags{}
 	c := &cobra.Command{
-		Use:   "forward <id>",
-		Short: "Forward a message; To is required, original is quoted below the new body",
-		Args:  cobra.ExactArgs(1),
+		Use:     "forward <id>",
+		Short:   "Forward a message; To is required, original is quoted below the new body",
+		Example: `  mbx message forward gmail:work:18f3... --to colleague@company.com --body "FYI"`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := mbxid.Parse(args[0])
 			if err != nil {

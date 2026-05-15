@@ -1,0 +1,62 @@
+# Changelog
+
+All notable changes to mbx are documented here.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
+mbx aims for [semantic versioning](https://semver.org/spec/v2.0.0.html) once
+v1.0.0 ships. Pre-v1 releases may include breaking changes between minor
+versions — they will be called out in the relevant entry's "Changed"
+section.
+
+## [Unreleased]
+
+## [0.1.0]
+
+First tagged release. Covers phases 0–7 of the implementation plan plus
+phase 8 polish: lint/test CI, shell completion, complete error-code
+taxonomy, per-command examples.
+
+### Added
+- Account lifecycle — `mbx account list | add | auth | doctor | remove | rename`,
+  with OAuth (Google), IMAP password, and per-account alias support for safe
+  renames (ADR-0007).
+- Gmail read path — `envelope list | search | thread`, `message read | export`,
+  `folder list`, `attachment list | download` via the Gmail HTTP API.
+- IMAP read path — same surface against `emersion/go-imap/v2`, including
+  Proton via the local bridge and corporate IMAP+OAuth.
+- Write path — `envelope flag` (cross-provider vocabulary), `message move |
+  copy | delete | send | reply | forward`, folder `add | delete | expunge |
+  purge`. Multi-ID inputs are fail-fast; idempotent verbs document that.
+- Threading — Gmail native; IMAP server `THREAD=REFERENCES` with bounded-
+  window client fallback when the server doesn't advertise it.
+- Cache — opt-in SQLite store (pure-Go `modernc.org/sqlite`) at
+  `<cache-dir>/cache.db`, keyed by canonical account name (ADR-0008).
+  `mbx cache sync | list | search | status | clear`. Mutating live verbs
+  write through best-effort; `account rename` rekeys cache rows.
+- Multi-account fanout — `-a a,b,c` on `envelope list | search` (and the
+  cache equivalents). Default is partial success with per-account errors
+  in `meta.errors`; `--strict` fails fast.
+- Stable JSON contract — every command emits `{"v":1, ...}` on stdout
+  (success) or stderr (error). No TTY detection (ADR-0004).
+- Stable error codes — `auth.*`, `provider.*`, `cache.*`, `config.*`,
+  `fanout.*`, plus `input.*` / `usage.invalid`. Full table in
+  [`docs/commands.md`](./docs/commands.md#exit-codes).
+- Shell completion — `mbx completion bash|zsh|fish|powershell`.
+- CI — GitHub Actions runs gofmt, `go mod tidy`, `go vet`, tests, and a
+  build on every PR + push to main.
+- Distribution — `git clone && make install`. No pre-built binaries; the
+  build is pure-Go and cross-compiles cleanly.
+
+### Documentation
+- [`README.md`](./README.md) — overview + doc index.
+- [`CONTEXT.md`](./CONTEXT.md) — domain language (Envelope, Folder, Flag,
+  mbx ID, Cache, Write-through, Secret, write_cmd).
+- [`docs/commands.md`](./docs/commands.md) — command surface contract.
+- [`docs/config.md`](./docs/config.md) — TOML config reference.
+- [`docs/adr/`](./docs/adr/) — eight architecture decision records:
+  secrets-resolution, self-describing IDs, cache-as-derived-state,
+  JSON output contract, TOML parser choice, himalaya config shape,
+  account aliases, cache storage and schema.
+
+[Unreleased]: https://github.com/oflabs44/mbx/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/oflabs44/mbx/releases/tag/v0.1.0

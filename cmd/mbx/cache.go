@@ -76,7 +76,10 @@ func newCacheSyncCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "sync",
 		Short: "Pull envelopes from one or more accounts into the cache",
-		Args:  cobra.NoArgs,
+		Example: `  mbx cache sync -a work
+  mbx cache sync -a work --folder INBOX --days 90
+  mbx cache sync -a work,gmail-personal --all`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runCacheSync(cmd.Context(), g, stdout, stderr, cf)
 		},
@@ -257,7 +260,9 @@ func newCacheListCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "list",
 		Short: "List cached envelopes (no live API calls)",
-		Args:  cobra.NoArgs,
+		Example: `  mbx cache list -a work --unread
+  mbx cache list -a work,gmail-personal --limit 50`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			q, err := ef.toListQuery(cmd)
 			if err != nil {
@@ -273,9 +278,10 @@ func newCacheListCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 func newCacheSearchCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	ef := &envelopeFlags{}
 	c := &cobra.Command{
-		Use:   "search <keywords>",
-		Short: "Search cached envelopes (no live API calls)",
-		Args:  cobra.ExactArgs(1),
+		Use:     "search <keywords>",
+		Short:   "Search cached envelopes (no live API calls)",
+		Example: `  mbx cache search -a work "invoice"`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			q, err := ef.toListQuery(cmd)
 			if err != nil {
@@ -339,7 +345,9 @@ func newCacheStatusCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command 
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Report cache row counts, last sync, and synced folders per account",
-		Args:  cobra.NoArgs,
+		Example: `  mbx cache status
+  mbx cache status -a work`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runCacheStatus(cmd.Context(), g, stdout, stderr)
 		},
@@ -397,9 +405,10 @@ type cacheClearResult struct {
 
 func newCacheClearCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	return &cobra.Command{
-		Use:   "clear",
-		Short: "Drop cache rows for the account(s); next `cache sync` rebuilds",
-		Args:  cobra.NoArgs,
+		Use:     "clear",
+		Short:   "Drop cache rows for the account(s); next `cache sync` rebuilds",
+		Example: `  mbx cache clear -a work`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runCacheClear(cmd.Context(), g, stdout, stderr)
 		},

@@ -40,9 +40,10 @@ type accountRenameResult struct {
 
 func newAccountRenameCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	return &cobra.Command{
-		Use:   "rename <old> <new>",
-		Short: "Rename an account; the old name is added as an alias so prior mbx IDs keep resolving",
-		Args:  cobra.ExactArgs(2),
+		Use:     "rename <old> <new>",
+		Short:   "Rename an account; the old name is added as an alias so prior mbx IDs keep resolving",
+		Example: `  mbx account rename personal personal-gmail`,
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			oldName, newName := args[0], args[1]
 			path, err := resolveConfigPath(g)
@@ -110,7 +111,9 @@ func newAccountAddCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "add <name>",
 		Short: "Append a commented [accounts.<name>] template to the config file",
-		Args:  cobra.ExactArgs(1),
+		Example: `  mbx account add gmail-personal --type gmail
+  mbx account add work --type imap`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 			tmpl, err := templateFor(typeFlag, name)
@@ -147,9 +150,10 @@ type accountAuthResult struct {
 
 func newAccountAuthCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	return &cobra.Command{
-		Use:   "auth <name>",
-		Short: "Run the OAuth flow and persist the refresh token via write_cmd",
-		Args:  cobra.ExactArgs(1),
+		Use:     "auth <name>",
+		Short:   "Run the OAuth flow and persist the refresh token via write_cmd",
+		Example: `  mbx account auth gmail-personal`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			name := args[0]
@@ -276,9 +280,10 @@ func newAccountRemoveCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Comman
 
 func newAccountDoctorCmd(g *GlobalFlags, stdout, stderr io.Writer) *cobra.Command {
 	return &cobra.Command{
-		Use:   "doctor <name>",
-		Short: "Probe an account: secrets resolve, auth refreshes, connectivity, capabilities",
-		Args:  cobra.ExactArgs(1),
+		Use:     "doctor <name>",
+		Short:   "Probe an account: secrets resolve, auth refreshes, connectivity, capabilities",
+		Example: `  mbx account doctor work`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			name := args[0]
