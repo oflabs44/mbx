@@ -10,6 +10,24 @@ section.
 
 ## [Unreleased]
 
+## [0.1.1]
+
+### Added
+- JSON Schema for `config.toml` at [`docs/config.schema.json`](./docs/config.schema.json).
+  Editors and agents (Helix / Zed / VS Code via `taplo`) can validate field
+  names, types, enums, secret-block `oneOf` discipline, and the gmail/imap
+  shape divergence without running mbx. Semantic checks (live OAuth refresh,
+  IMAP login, secret resolution) remain owned by `mbx account doctor`.
+
+### Fixed
+- `mbx version` now reports the real build version. The Makefile injects
+  `git describe --tags --dirty --always` via `-ldflags`; previously every
+  `make build` / `make install` produced a binary that printed `"dev"`.
+
+### Documentation
+- README trimmed to the user-facing surface; project-internal detail moved
+  out of the entry doc.
+
 ## [0.1.0]
 
 First tagged release. Covers phases 0–7 of the implementation plan plus
@@ -58,5 +76,6 @@ taxonomy, per-command examples.
   JSON output contract, TOML parser choice, himalaya config shape,
   account aliases, cache storage and schema.
 
-[Unreleased]: https://github.com/oflabs44/mbx/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/oflabs44/mbx/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/oflabs44/mbx/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/oflabs44/mbx/releases/tag/v0.1.0
