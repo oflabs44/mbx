@@ -2,6 +2,8 @@
 
 Reference for mbx's config file. The config is parsed with `pelletier/go-toml/v2` ([ADR-0005](./adr/0005-toml-parser-pelletier-v2.md)) with `DisallowUnknownFields` enabled — typos in keys are surfaced with line/column on load (`config.invalid`, exit 40).
 
+A JSON Schema lives at [`config.schema.json`](./config.schema.json) for agents and editors that can validate TOML against it (Helix / Zed / VS Code via the `taplo` toolchain pick it up automatically when the schema is referenced). It covers field names, types, enums, secret-block `oneOf` discipline, and the gmail/imap shape divergence. Semantic checks the schema can't express (live OAuth refresh, IMAP `LOGIN` success, secret resolution) are still owned by `mbx account doctor`.
+
 The TOML shape is the himalaya-derived dotted-key form with mbx extensions ([ADR-0006](./adr/0006-himalaya-config-shape.md)). Every account is one `[accounts.<name>]` block; everything inside an account uses dotted keys.
 
 ## Where mbx looks

@@ -1,0 +1,317 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/oflabs44/mbx/main/docs/config.schema.json",
+  "title": "mbx config",
+  "description": "Schema for the mbx CLI's TOML config file (default location ~/.config/mbx/config.toml). Mirrors the Go structs in internal/config; the runtime additionally enforces semantic rules that JSON Schema can't express — run `mbx account doctor <name>` after editing. See docs/config.md for the human-readable reference.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["accounts"],
+  "properties": {
+    "downloads-dir": {
+      "type": "string",
+      "description": "Default directory for `mbx attachment download` outputs. Falls back to the system temp dir when unset. `~/` is expanded."
+    },
+    "cache-dir": {
+      "type": "string",
+      "description": "Directory holding the single SQLite cache file (`<cache-dir>/cache.db`). Default: $XDG_CACHE_HOME/mbx, falling back to ~/.cache/mbx. ADR-0008."
+    },
+    "accounts": {
+      "type": "object",
+      "description": "Map of canonical account name to account block. At least one entry required.",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "description": "TOML-bare-key shape; the account name may not contain ':' (separator in mbx IDs)."
+      },
+      "additionalProperties": { "$ref": "#/$defs/account" }
+    }
+  },
+  "$defs": {
+    "account": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["email", "backend"],
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Display address used as From: when this account sends."
+        },
+        "aliases": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Secondary names this account answers to (ADR-0007). Usually set automatically by `mbx account rename`."
+        },
+        "backend": { "$ref": "#/$defs/backend-read" },
+        "message": { "$ref": "#/$defs/message" },
+        "folder": { "$ref": "#/$defs/folder" },
+        "cache": { "$ref": "#/$defs/cache" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "backend": { "properties": { "type": { "const": "gmail" } }, "required": ["type"] } },
+            "required": ["backend"]
+          },
+          "then": {
+            "description": "Gmail accounts must not declare message.send.backend — the Gmail HTTP API handles send.",
+            "not": {
+              "properties": { "message": { "required": ["send"] } },
+              "required": ["message"]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "backend": { "properties": { "type": { "const": "imap" } }, "required": ["type"] } },
+            "required": ["backend"]
+          },
+          "then": {
+            "description": "IMAP accounts require message.send.backend (SMTP) and folder.aliases.inbox.",
+            "required": ["message", "folder"],
+            "properties": {
+              "message": { "required": ["send"] },
+              "folder": {
+                "required": ["aliases"],
+                "properties": {
+                  "aliases": { "required": ["inbox"] }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "backend-read": {
+      "type": "object",
+      "description": "Read-side backend. Type discriminates the schema: gmail uses the Gmail HTTP API; imap uses IMAP and pairs with a separate message.send.backend for sending.",
+      "additionalProperties": false,
+      "required": ["type", "login", "auth"],
+      "properties": {
+        "type": { "type": "string", "enum": ["gmail", "imap"] },
+        "host": { "type": "string", "description": "IMAP host. Forbidden on gmail backends." },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535, "description": "IMAP port. Forbidden on gmail backends." },
+        "encryption": { "$ref": "#/$defs/encryption" },
+        "login": { "type": "string", "description": "Username sent to the server (often the email)." },
+        "auth": { "$ref": "#/$defs/auth" },
+        "extensions": { "$ref": "#/$defs/extensions" },
+        "thread_window": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "IMAP only. Cap on the corpus the client-side threading algorithm scans when the server doesn't advertise THREAD=REFERENCES. Default 1000."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "gmail" } }, "required": ["type"] },
+          "then": {
+            "not": {
+              "anyOf": [
+                { "required": ["host"] },
+                { "required": ["port"] },
+                { "required": ["encryption"] }
+              ]
+            },
+            "properties": {
+              "auth": {
+                "properties": { "type": { "const": "oauth2" } }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "imap" } }, "required": ["type"] },
+          "then": { "required": ["host", "port", "encryption"] }
+        }
+      ]
+    },
+    "backend-send": {
+      "type": "object",
+      "description": "Send-side backend under message.send.backend. SMTP only; auth is never inherited from backend.auth — configure explicitly.",
+      "additionalProperties": false,
+      "required": ["type", "host", "port", "encryption", "login", "auth"],
+      "properties": {
+        "type": { "const": "smtp" },
+        "host": { "type": "string" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "encryption": { "$ref": "#/$defs/encryption" },
+        "login": { "type": "string" },
+        "auth": { "$ref": "#/$defs/auth" }
+      }
+    },
+    "encryption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["tls", "start-tls", "none"]
+        },
+        "insecure": {
+          "type": "boolean",
+          "description": "Disable TLS certificate verification. Only for loopback relays like Proton bridge. Cannot be set when type=none."
+        }
+      },
+      "not": {
+        "allOf": [
+          { "properties": { "type": { "const": "none" } }, "required": ["type"] },
+          { "properties": { "insecure": { "const": true } }, "required": ["insecure"] }
+        ]
+      }
+    },
+    "auth": {
+      "type": "object",
+      "description": "Authentication block. Shape depends on type: password expects exactly one of raw/keyring/cmd; oauth2 expects nested secret blocks (client-id, refresh-token, etc.).",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["password", "oauth2"] },
+        "raw": { "type": "string", "description": "Inline secret. Testing only — never commit to dotfiles." },
+        "keyring": { "type": "string", "description": "OS keychain item key (read via zalando/go-keyring)." },
+        "cmd": { "type": "string", "description": "Shell command whose stdout is the secret. Trailing newline trimmed." },
+        "client-id": { "type": "string" },
+        "client-secret": { "$ref": "#/$defs/secret" },
+        "access-token": { "$ref": "#/$defs/secret" },
+        "refresh-token": { "$ref": "#/$defs/secret" },
+        "auth-url": { "type": "string", "format": "uri" },
+        "token-url": { "type": "string", "format": "uri" },
+        "method": { "type": "string", "description": "Provider-specific SASL/HTTP auth method (e.g. xoauth2)." },
+        "pkce": { "type": "boolean" },
+        "scope": { "type": "string", "description": "Single space-separated scope string. Prefer `scopes` (array)." },
+        "scopes": { "type": "array", "items": { "type": "string" } },
+        "redirect-scheme": { "type": "string", "description": "OAuth redirect URI scheme. Default http." },
+        "redirect-host": { "type": "string", "description": "OAuth redirect URI host. Default localhost." },
+        "redirect-port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "description": "OAuth redirect URI port. 0 = pick any free port."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "password" } }, "required": ["type"] },
+          "then": {
+            "oneOf": [
+              { "required": ["raw"] },
+              { "required": ["keyring"] },
+              { "required": ["cmd"] }
+            ],
+            "not": {
+              "anyOf": [
+                { "required": ["client-id"] },
+                { "required": ["client-secret"] },
+                { "required": ["access-token"] },
+                { "required": ["refresh-token"] },
+                { "required": ["auth-url"] },
+                { "required": ["token-url"] }
+              ]
+            }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "oauth2" } }, "required": ["type"] },
+          "then": {
+            "required": ["client-id", "auth-url", "token-url", "refresh-token"],
+            "not": {
+              "anyOf": [
+                { "required": ["raw"] },
+                { "required": ["keyring"] },
+                { "required": ["cmd"] }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "secret": {
+      "type": "object",
+      "description": "Tagged-sum: exactly one of raw, keyring, cmd. `write_cmd` is required on rotated secrets (OAuth refresh-token) — mbx pipes the new value to its stdin. ADR-0001.",
+      "additionalProperties": false,
+      "properties": {
+        "raw": { "type": "string", "description": "Inline secret. Testing only." },
+        "keyring": { "type": "string", "description": "OS keychain item key." },
+        "cmd": { "type": "string", "description": "Shell command whose stdout is the secret. Trailing newline trimmed." },
+        "write_cmd": { "type": "string", "description": "Shell command that persists a rotated secret. Receives the new value on stdin." }
+      },
+      "oneOf": [
+        { "required": ["raw"] },
+        { "required": ["keyring"] },
+        { "required": ["cmd"] }
+      ]
+    },
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "send": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["backend"],
+          "properties": {
+            "backend": { "$ref": "#/$defs/backend-send" },
+            "save-copy": {
+              "type": "boolean",
+              "description": "Save successfully-sent messages to the folder resolved by folder.aliases.sent. Default false."
+            },
+            "pre-hook": { "type": "string", "description": "Shell command run before send (Phase 4 hook; future use)." }
+          }
+        },
+        "delete": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "style": {
+              "type": "string",
+              "enum": ["flag", "folder"],
+              "description": "How `message delete` behaves by default: 'flag' sets \\Deleted, 'folder' moves to trash. Currently informational."
+            }
+          }
+        }
+      }
+    },
+    "folder": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "aliases": {
+          "type": "object",
+          "description": "Canonical role to provider-native folder name. `inbox` is required on IMAP accounts; gmail has defaults. Extra user aliases are accepted.",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "cache": {
+      "type": "object",
+      "description": "Opt-in cache config. Per-account `cache.path` was removed in v0.1.0 (ADR-0008); set the top-level `cache-dir` instead.",
+      "additionalProperties": false,
+      "properties": {
+        "sync_days": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Days to sync back. Default 30."
+        },
+        "folders": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Folders to sync. Default: the folder resolved by folder.aliases.inbox."
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Per-backend extension toggles.",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "IMAP ID extension (RFC 2971).",
+          "properties": {
+            "send_after_auth": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}
