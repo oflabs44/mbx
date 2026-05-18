@@ -84,6 +84,36 @@ func TestFanoutAllFailedError_ShapeAndCode(t *testing.T) {
 	}
 }
 
+func TestResolveAccountList_AllExpandsToEveryAccount(t *testing.T) {
+	c := newFanoutCfg(t)
+	names, accts, err := resolveAccountList(c, []string{"all"})
+	if err != nil {
+		t.Fatalf("resolveAccountList: %v", err)
+	}
+	// Sorted canonical order.
+	if !reflect.DeepEqual(names, []string{"getu", "personal", "work"}) {
+		t.Errorf("names = %v, want [getu personal work]", names)
+	}
+	if len(accts) != 3 || accts["work"] == nil || accts["personal"] == nil || accts["getu"] == nil {
+		t.Errorf("accts map missing entries: %+v", accts)
+	}
+}
+
+func TestResolveAccountList_AllRejectsMixing(t *testing.T) {
+	c := newFanoutCfg(t)
+	_, _, err := resolveAccountList(c, []string{"all", "work"})
+	if err == nil {
+		t.Fatal("want error, got nil")
+	}
+	var f *output.Failure
+	if !errors.As(err, &f) {
+		t.Fatalf("err is not *output.Failure: %T", err)
+	}
+	if f.Code != output.CodeUsageInvalid {
+		t.Errorf("code = %q, want %q", f.Code, output.CodeUsageInvalid)
+	}
+}
+
 func TestResolveAccountList_UnknownAborts(t *testing.T) {
 	c := newFanoutCfg(t)
 	_, _, err := resolveAccountList(c, []string{"work", "nope"})

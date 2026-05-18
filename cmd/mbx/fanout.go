@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -156,6 +157,21 @@ func fanoutAllFailedError(accounts []string, errs map[string]*output.Failure) *o
 // a name→Account map. Unknown names abort the whole command — partial
 // success applies to runtime failures, not config typos.
 func resolveAccountList(cfg *config.Config, names []string) ([]string, map[string]*config.Account, error) {
+	if slices.Contains(names, config.ReservedAccountName) {
+		if len(names) > 1 {
+			return nil, nil, output.Errorf(output.CodeUsageInvalid,
+				"-a all cannot be combined with other account names")
+		}
+		canonical := make([]string, 0, len(cfg.Accounts))
+		accts := make(map[string]*config.Account, len(cfg.Accounts))
+		for cname, a := range cfg.Accounts {
+			canonical = append(canonical, cname)
+			accts[cname] = a
+		}
+		sort.Strings(canonical)
+		return canonical, accts, nil
+	}
+
 	canonical := make([]string, 0, len(names))
 	accts := make(map[string]*config.Account, len(names))
 	seen := make(map[string]bool, len(names))

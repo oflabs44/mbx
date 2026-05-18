@@ -8,7 +8,7 @@ Full reference for the mbx command surface. See [CONTEXT.md](../CONTEXT.md) for 
 
 | Flag | Description |
 |---|---|
-| `-a, --account <name>[,<name>...]` | Account name(s). Required unless implicit in an **mbx ID** argument. Accepts repeated flag or comma list. No wildcards, no env fallback, no implicit default. |
+| `-a, --account <name>[,<name>...]` | Account name(s). Required unless implicit in an **mbx ID** argument. Accepts repeated flag or comma list. The literal `all` is a sentinel that fans out to every account in the config (sorted by canonical name) and cannot be combined with other names. No wildcards, no env fallback, no implicit default. |
 | `-o, --output <json\|table>` | Output format. Default `json`. No TTY-detection. |
 | `-c, --config <path>` | Override config file path. Default `~/.config/mbx/config.toml`. |
 | `--strict` | Fanout: fail if any account in `-a a,b` fails. Default is partial success. |
@@ -244,7 +244,7 @@ mbx envelope list -a work,gmail-personal --unread             # fanout
 | `--cursor <c>` | Resume from a previous response's `meta.next_cursors[<account>]`. Rejected with `usage.invalid` (exit 2) when paired with multi-account `-a` — page accounts individually. |
 | `--strict` | Fail entire command if any fanout account fails. Without it, partial success: any account that succeeded contributes envelopes, failures land in `meta.errors` keyed by account, exit `0`. |
 
-**Multi-account behaviour.** When `-a` lists more than one account, mbx fans out: each account is dispatched concurrently and its envelopes are merged into one response sorted by `date` descending. Per-account state (cursors, errors) lives under `meta.next_cursors` and `meta.errors`, keyed by the canonical account name ([ADR-0007](./adr/0007-account-renames-via-aliases.md)) — aliases are resolved before dispatch. Wildcards in `-a` (e.g. `*`) are rejected with `usage.invalid`.
+**Multi-account behaviour.** When `-a` lists more than one account, mbx fans out: each account is dispatched concurrently and its envelopes are merged into one response sorted by `date` descending. Per-account state (cursors, errors) lives under `meta.next_cursors` and `meta.errors`, keyed by the canonical account name ([ADR-0007](./adr/0007-account-renames-via-aliases.md)) — aliases are resolved before dispatch. `-a all` expands to every account in the config (sorted) and cannot be combined with other names (`-a all,work` is rejected). Wildcards in `-a` (e.g. `*`) are rejected with `usage.invalid`.
 
 Output:
 ```json

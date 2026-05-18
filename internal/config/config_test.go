@@ -432,6 +432,41 @@ backend.auth.refresh-token.write_cmd = "cat >/dev/null"
 			want: ErrInvalidValue,
 		},
 		{
+			name: "account named all rejected (reserved sentinel)",
+			cfg: `
+[accounts.all]
+email = "a@y"
+
+backend.type = "gmail"
+backend.login = "a@y"
+backend.auth.type = "oauth2"
+backend.auth.client-id = "id"
+backend.auth.auth-url = "https://a"
+backend.auth.token-url = "https://t"
+backend.auth.refresh-token.cmd = "echo x"
+backend.auth.refresh-token.write_cmd = "cat >/dev/null"
+`,
+			want: ErrInvalidValue,
+		},
+		{
+			name: "alias all rejected (reserved sentinel)",
+			cfg: `
+[accounts.a]
+email = "a@y"
+aliases = ["all"]
+
+backend.type = "gmail"
+backend.login = "a@y"
+backend.auth.type = "oauth2"
+backend.auth.client-id = "id"
+backend.auth.auth-url = "https://a"
+backend.auth.token-url = "https://t"
+backend.auth.refresh-token.cmd = "echo x"
+backend.auth.refresh-token.write_cmd = "cat >/dev/null"
+`,
+			want: ErrInvalidValue,
+		},
+		{
 			name: "self-aliasing rejected",
 			cfg: `
 [accounts.a]

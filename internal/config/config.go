@@ -283,9 +283,17 @@ func (c *Config) Resolve(name string) (canonical string, acct *Account, ok bool)
 	return "", nil, false
 }
 
+// ReservedAccountName is the `-a` sentinel for fanout-to-every-account; an
+// account or alias named "all" would shadow it at runtime, so reject at load.
+const ReservedAccountName = "all"
+
 func (c *Config) validate() error {
 	if len(c.Accounts) == 0 {
 		return fmt.Errorf("%w: at least one [accounts.<name>] block required", ErrMissingField)
+	}
+	if _, taken := c.Accounts[ReservedAccountName]; taken {
+		return fmt.Errorf("%w: account name %q is reserved (used by -a all to fan out across every account)",
+			ErrInvalidValue, ReservedAccountName)
 	}
 	for name, a := range c.Accounts {
 		if err := a.validate(); err != nil {
@@ -311,6 +319,10 @@ func (c *Config) BuildAliasIndex() error {
 			}
 			if alias == cname {
 				return fmt.Errorf("%w: account %q lists itself as an alias", ErrInvalidValue, cname)
+			}
+			if alias == ReservedAccountName {
+				return fmt.Errorf("%w: alias %q on account %q is reserved (used by -a all to fan out across every account)",
+					ErrInvalidValue, alias, cname)
 			}
 			if _, isCanonical := c.Accounts[alias]; isCanonical {
 				return fmt.Errorf("%w: alias %q on account %q collides with the canonical name of another account",

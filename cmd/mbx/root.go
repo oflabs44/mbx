@@ -40,7 +40,7 @@ func newRootCmd(stdout, stderr io.Writer) (*cobra.Command, *GlobalFlags) {
 	}
 
 	f := cmd.PersistentFlags()
-	f.StringSliceVarP(&g.Accounts, "account", "a", nil, "Account name(s). Required unless implicit in an mbx ID. Accepts repeated flag or comma list.")
+	f.StringSliceVarP(&g.Accounts, "account", "a", nil, "Account name(s). Required unless implicit in an mbx ID. Accepts repeated flag or comma list. The literal `all` fans out to every account in the config.")
 	f.StringVarP(&g.Output, "output", "o", "json", "Output format: json | table")
 	f.StringVarP(&g.Config, "config", "c", "", "Override config file path (default: ~/.config/mbx/config.toml)")
 	f.BoolVar(&g.Strict, "strict", false, "Fanout: fail if any account in -a a,b fails")
